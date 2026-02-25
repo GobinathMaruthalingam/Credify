@@ -1,0 +1,15 @@
+# Environments
+venv/
+env/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Application specific
+generated/
+*.pdf
+template.png
+participants.csv
