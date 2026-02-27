@@ -1,11 +1,19 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+import os
+
 from database import engine, Base
 import auth
+from routers import projects
 
 app = FastAPI(title="Credify API", description="SaaS Backend for Credify Certificate Pipeline")
 
 app.include_router(auth.router)
+app.include_router(projects.router)
+
+os.makedirs("local_storage/uploads", exist_ok=True)
+app.mount("/static", StaticFiles(directory="local_storage"), name="static")
 
 app.add_middleware(
     CORSMiddleware,
