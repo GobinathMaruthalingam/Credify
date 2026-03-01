@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -17,6 +17,8 @@ class Project(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
+    template_url = Column(String, nullable=True)     # Stores the base certificate image URL
+    mapping_data = Column(JSON, nullable=True)       # Stores the React placeholders array configuration
     owner_id = Column(Integer, ForeignKey("users.id"))
 
     owner = relationship("User", back_populates="projects")

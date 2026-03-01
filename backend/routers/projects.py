@@ -8,7 +8,7 @@ from sqlalchemy.future import select
 from database import get_db
 from models import User, Project
 from auth import get_current_user
-from schemas import ProjectCreate, ProjectResponse, PreviewRequest
+from schemas import ProjectCreate, ProjectResponse, PreviewRequest, ProjectMappingUpdate
 from storage import upload_file_to_s3
 from services import generate_preview
 
@@ -70,12 +70,29 @@ async def preview_certificate(req: PreviewRequest, current_user: User = Depends(
 
 @router.post("/", response_model=ProjectResponse)
 async def create_project(project: ProjectCreate, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    # Standard DB schema save (e.g., when they save their work)
-    new_project = Project(name=project.name, owner_id=current_user.id)
+    # Standard DB schema save 
+    new_project = Project(
+        name=project.name, 
+        template_url=project.template_url,
+        owner_id=current_user.id
+    )
     db.add(new_project)
     await db.commit()
     await db.refresh(new_project)
     return new_project
+
+@router.put("/{project_id}/mapping", response_model=ProjectResponse)
+async def update_project_mapping(project_id: int, payload: ProjectMappingUpdate, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Project).where(Project.id == project_id, Project.owner_id == current_user.id))
+    project = result.scalars().first()
+    
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+        
+    project.mapping_data = payload.mapping_data
+    await db.commit()
+    await db.refresh(project)
+    return project
 
 @router.get("/", response_model=list[ProjectResponse])
 async def list_projects(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):

@@ -1,12 +1,18 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List, Any
 
 class ProjectCreate(BaseModel):
     name: str
+    template_url: str
+
+class ProjectMappingUpdate(BaseModel):
+    mapping_data: List[Any]
 
 class ProjectResponse(BaseModel):
     id: int
     name: str
+    template_url: Optional[str] = None
+    mapping_data: Optional[List[Any]] = None
     owner_id: int
     
     class Config:

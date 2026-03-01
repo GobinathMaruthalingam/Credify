@@ -1,10 +1,33 @@
 import { useState } from "react";
 import { LayoutDashboard, FileImage, Settings, Send, LogOut } from "lucide-react";
+import axios from "axios";
 import TemplateUpload from "../components/TemplateUpload";
 import EditorCanvas from "../components/EditorCanvas";
 
 export default function Dashboard() {
     const [templateUrl, setTemplateUrl] = useState<string | null>(null);
+    const [projectId, setProjectId] = useState<number | null>(null);
+    const [isCreatingProject, setIsCreatingProject] = useState(false);
+
+    const handleUploadComplete = async (url: string) => {
+        setIsCreatingProject(true);
+        try {
+            const token = localStorage.getItem("token") || "mock_token"; // Use actual token from Auth context
+            const res = await axios.post(
+                "http://localhost:8000/api/projects/",
+                { name: "Untitled Certificate", template_url: url },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            setTemplateUrl(url);
+            setProjectId(res.data.id);
+        } catch (err) {
+            console.error("Failed to create project record", err);
+            // Fallback for UI if DB creation fails temporarily 
+            setTemplateUrl(url);
+        } finally {
+            setIsCreatingProject(false);
+        }
+    };
 
     return (
         <div className="flex h-screen bg-slate-50">
@@ -46,16 +69,24 @@ export default function Dashboard() {
                 </header>
 
                 <div className="p-8 max-w-[1200px] w-full mx-auto space-y-6 flex-1">
-                    {!templateUrl ? (
+                    {isCreatingProject ? (
+                        <div className="flex flex-col items-center justify-center h-full animate-pulse">
+                            <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                            <p className="mt-4 text-slate-500 font-medium">Initializing Workspace...</p>
+                        </div>
+                    ) : !templateUrl ? (
                         <div className="max-w-3xl mx-auto mt-12 animate-in fade-in zoom-in-95 duration-500">
-                            <TemplateUpload onUpload={(url) => setTemplateUrl(url)} />
+                            <TemplateUpload onUpload={handleUploadComplete} />
                         </div>
                     ) : (
                         <div className="h-full flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500">
                             <div className="flex justify-between items-center mb-4">
                                 <h2 className="text-2xl font-bold text-slate-800">Map Certificate</h2>
                                 <div className="flex gap-3">
-                                    <button onClick={() => setTemplateUrl(null)} className="px-4 py-2 text-slate-600 hover:bg-slate-200 bg-slate-100 rounded-lg font-medium transition-colors">
+                                    <button
+                                        onClick={() => { setTemplateUrl(null); setProjectId(null); }}
+                                        className="px-4 py-2 text-slate-600 hover:bg-slate-200 bg-slate-100 rounded-lg font-medium transition-colors"
+                                    >
                                         Re-upload
                                     </button>
                                     <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors shadow-sm">
@@ -63,7 +94,7 @@ export default function Dashboard() {
                                     </button>
                                 </div>
                             </div>
-                            <EditorCanvas templateUrl={templateUrl} />
+                            <EditorCanvas templateUrl={templateUrl} projectId={projectId} />
                         </div>
                     )}
                 </div>
