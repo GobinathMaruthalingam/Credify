@@ -42,6 +42,7 @@ const CanvasImage = ({ ph }: { ph: Placeholder }) => {
 export default function EditorCanvas({ templateUrl, projectId }: EditorCanvasProps) {
     const [image] = useImage(templateUrl);
     const [isSaving, setIsSaving] = useState(false);
+    const [isSaved, setIsSaved] = useState(false);
 
     // Calculate base scale directly from the image dimensions, replacing useEffect state-sync.
     const baseScale = React.useMemo(() => {
@@ -219,6 +220,24 @@ export default function EditorCanvas({ templateUrl, projectId }: EditorCanvasPro
                     const newPlaceholders = placeholders.filter(ph => ph.id !== selectedId);
                     updatePlaceholders(newPlaceholders);
                     setSelectedId(null);
+                }
+            }
+            // Arrow Keys for pixel-perfect nudging
+            else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA' || document.activeElement?.tagName === 'SELECT') return;
+
+                if (selectedId) {
+                    e.preventDefault(); // Prevent page scrolling
+                    const step = e.shiftKey ? 10 : 1;
+                    const newPlaceholders = placeholders.map(p => {
+                        if (p.id !== selectedId) return p;
+                        return {
+                            ...p,
+                            x: e.key === 'ArrowLeft' ? p.x - step : e.key === 'ArrowRight' ? p.x + step : p.x,
+                            y: e.key === 'ArrowUp' ? p.y - step : e.key === 'ArrowDown' ? p.y + step : p.y
+                        };
+                    });
+                    updatePlaceholders(newPlaceholders);
                 }
             }
             // Undo: Ctrl+Z or Cmd+Z
@@ -588,7 +607,7 @@ export default function EditorCanvas({ templateUrl, projectId }: EditorCanvasPro
                         </div>
 
                         <button
-                            disabled={isSaving || !projectId}
+                            disabled={isSaving || isSaved || !projectId}
                             onClick={async () => {
                                 if (!projectId) return;
                                 setIsSaving(true);
@@ -599,6 +618,8 @@ export default function EditorCanvas({ templateUrl, projectId }: EditorCanvasPro
                                     }, {
                                         headers: { Authorization: `Bearer ${token}` }
                                     });
+                                    setIsSaved(true);
+                                    setTimeout(() => setIsSaved(false), 2000);
                                 } catch (error) {
                                     console.error("Failed to save layout configuration to DB:", error);
                                 } finally {
@@ -606,13 +627,15 @@ export default function EditorCanvas({ templateUrl, projectId }: EditorCanvasPro
                                 }
                             }}
                             className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${isSaving
-                                ? 'bg-indigo-400 text-white cursor-wait'
-                                : projectId
-                                    ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
-                                    : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                    ? 'bg-indigo-400 text-white cursor-wait'
+                                    : isSaved
+                                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                                        : projectId
+                                            ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
+                                            : 'bg-slate-100 text-slate-400 cursor-not-allowed'
                                 }`}
                         >
-                            {isSaving ? 'Saving...' : 'Save Configuration'}
+                            {isSaving ? 'Saving...' : isSaved ? '✓ Saved!' : 'Save Configuration'}
                         </button>
                     </div>
                 </div>
