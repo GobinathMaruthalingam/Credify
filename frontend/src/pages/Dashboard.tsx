@@ -1,11 +1,15 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
 import { LayoutDashboard, FileImage, Settings, Send, LogOut } from "lucide-react";
+import TemplateUpload from "../components/TemplateUpload";
+import EditorCanvas from "../components/EditorCanvas";
 
 export default function Dashboard() {
+    const [templateUrl, setTemplateUrl] = useState<string | null>(null);
+
     return (
         <div className="flex h-screen bg-slate-50">
             {/* Sidebar */}
-            <aside className="w-64 bg-white border-r border-slate-200 flex flex-col">
+            <aside className="w-64 bg-white border-r border-slate-200 flex flex-col z-20 shadow-sm relative">
                 <div className="p-6 border-b border-slate-100 pb-5">
                     <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Credify<span className="text-indigo-600">.</span></h2>
                 </div>
@@ -31,27 +35,37 @@ export default function Dashboard() {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-auto">
-                <header className="bg-white border-b border-slate-200 px-8 py-5 flex justify-between items-center sticky top-0 z-10">
+            <main className="flex-1 overflow-auto flex flex-col relative z-0">
+                <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-5 flex justify-between items-center sticky top-0 z-10 w-full">
                     <h1 className="text-xl font-semibold text-slate-800">Projects Dashboard</h1>
                     <div className="flex items-center gap-4">
-                        <div className="h-9 w-9 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center font-bold text-sm">
+                        <div className="h-9 w-9 bg-gradient-to-tr from-indigo-500 to-cyan-400 text-white rounded-full flex items-center justify-center font-bold text-sm shadow-md">
                             JD
                         </div>
                     </div>
                 </header>
 
-                <div className="p-8 max-w-6xl mx-auto space-y-6">
-                    <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center space-y-4 py-16">
-                        <div className="h-16 w-16 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 mb-2">
-                            <FileImage size={32} />
+                <div className="p-8 max-w-[1200px] w-full mx-auto space-y-6 flex-1">
+                    {!templateUrl ? (
+                        <div className="max-w-3xl mx-auto mt-12 animate-in fade-in zoom-in-95 duration-500">
+                            <TemplateUpload onUpload={(url) => setTemplateUrl(url)} />
                         </div>
-                        <h3 className="text-xl font-semibold text-slate-800">No projects yet</h3>
-                        <p className="text-slate-500 max-w-md">Get started by creating a new project. You'll need a template image and a CSV of participants.</p>
-                        <button className="mt-4 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors shadow-sm">
-                            Create First Project
-                        </button>
-                    </div>
+                    ) : (
+                        <div className="h-full flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-2xl font-bold text-slate-800">Map Certificate</h2>
+                                <div className="flex gap-3">
+                                    <button onClick={() => setTemplateUrl(null)} className="px-4 py-2 text-slate-600 hover:bg-slate-200 bg-slate-100 rounded-lg font-medium transition-colors">
+                                        Re-upload
+                                    </button>
+                                    <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors shadow-sm">
+                                        Continue to Dispatch
+                                    </button>
+                                </div>
+                            </div>
+                            <EditorCanvas templateUrl={templateUrl} />
+                        </div>
+                    )}
                 </div>
             </main>
         </div>
