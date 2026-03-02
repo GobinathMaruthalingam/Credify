@@ -22,6 +22,7 @@ interface Placeholder {
     align: 'left' | 'center' | 'right';
     fontSize: number;
     fontFamily: string;
+    fontUrl?: string;
     fill: string;
     isBold: boolean;
     isItalic: boolean;
@@ -85,6 +86,39 @@ export default function EditorCanvas({ templateUrl, projectId }: EditorCanvasPro
     useEffect(() => { historyRef.current = history; }, [history]);
     useEffect(() => { historyStepRef.current = historyStep; }, [historyStep]);
 
+    // Track loaded fonts to prevent redundant injections
+    const loadedFontsRef = useRef<Set<string>>(new Set(['Inter', 'Arial', 'Times New Roman', 'Courier New', 'Georgia', 'Trebuchet MS']));
+
+    // Dynamically inject Google Fonts & Custom TTF Fonts
+    useEffect(() => {
+        let injected = false;
+        placeholders.forEach((ph) => {
+            if (!ph.fontFamily || loadedFontsRef.current.has(ph.fontFamily)) return;
+
+            if (ph.fontUrl) {
+                // Load Custom .ttf / .otf
+                const font = new FontFace(ph.fontFamily, `url(${ph.fontUrl})`);
+                font.load().then((loadedFace) => {
+                    document.fonts.add(loadedFace);
+                    loadedFontsRef.current.add(ph.fontFamily);
+                    setHistory(h => [...h]); // slightly nudge state to paint canvas
+                }).catch(err => console.error("Failed to load custom font", err));
+            } else {
+                // Load Google Font
+                const link = document.createElement("link");
+                link.href = `https://fonts.googleapis.com/css2?family=${ph.fontFamily.replace(/ /g, '+')}:ital,wght@0,400;0,700;1,400;1,700&display=swap`;
+                link.rel = "stylesheet";
+                document.head.appendChild(link);
+                loadedFontsRef.current.add(ph.fontFamily);
+                injected = true;
+            }
+        });
+
+        if (injected) {
+            document.fonts.ready.then(() => setHistory(h => [...h]));
+        }
+    }, [placeholders]);
+
     // Set the current placeholders by appending to history
     const updatePlaceholders = useCallback((newPlaceholders: Placeholder[]) => {
         const newHistory = history.slice(0, historyStep + 1);
@@ -114,6 +148,14 @@ export default function EditorCanvas({ templateUrl, projectId }: EditorCanvasPro
     // Image Upload State
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+
+    // Font Upload State
+    const fontInputRef = useRef<HTMLInputElement>(null);
+    const [isUploadingFont, setIsUploadingFont] = useState(false);
+    const [isFontSaved, setIsFontSaved] = useState(false);
+
+    // Globally cache uploaded session fonts to populate dropdown
+    const [customFonts, setCustomFonts] = useState<{ name: string, url: string }[]>([]);
 
     const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -149,6 +191,49 @@ export default function EditorCanvas({ templateUrl, projectId }: EditorCanvasPro
         } finally {
             setIsUploadingLogo(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const handleFontUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) {
+            alert("Upload Error: No file detected by the browser selector.");
+            return;
+        }
+        if (!selectedId) {
+            alert("Upload Error: No text placeholder is currently selected. Please click on a text element first.");
+            return;
+        }
+        setIsUploadingFont(true);
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            const token = localStorage.getItem("token") || "mock_token";
+            const res = await axios.post("http://localhost:8000/api/projects/upload", formData, {
+                headers: { "Content-Type": "multipart/form-data", Authorization: `Bearer ${token}` }
+            });
+            const url = res.data.url;
+            // Generate a safe unique font name from filename
+            const fontName = file.name.split('.')[0].replace(/[^a-zA-Z0-9]/g, '');
+
+            // Add to session cache
+            setCustomFonts(prev => {
+                const filtered = prev.filter(f => f.name !== fontName);
+                return [...filtered, { name: fontName, url }];
+            });
+
+            updateSelectedPlaceholder({ fontFamily: fontName, fontUrl: url });
+
+            setIsFontSaved(true);
+            setTimeout(() => setIsFontSaved(false), 2000);
+            setTimeout(() => setIsFontSaved(false), 2000);
+
+        } catch (err: any) {
+            console.error("Failed to upload custom font", err);
+            alert(`Network Error: Failed to upload custom font. ${err?.response?.data?.detail || err.message}`);
+        } finally {
+            setIsUploadingFont(false);
+            if (fontInputRef.current) fontInputRef.current.value = '';
         }
     };
     const [newBox, setNewBox] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
@@ -627,12 +712,12 @@ export default function EditorCanvas({ templateUrl, projectId }: EditorCanvasPro
                                 }
                             }}
                             className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${isSaving
-                                    ? 'bg-indigo-400 text-white cursor-wait'
-                                    : isSaved
-                                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                                        : projectId
-                                            ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
-                                            : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                ? 'bg-indigo-400 text-white cursor-wait'
+                                : isSaved
+                                    ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                                    : projectId
+                                        ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
+                                        : 'bg-slate-100 text-slate-400 cursor-not-allowed'
                                 }`}
                         >
                             {isSaving ? 'Saving...' : isSaved ? '✓ Saved!' : 'Save Configuration'}
@@ -844,15 +929,58 @@ export default function EditorCanvas({ templateUrl, projectId }: EditorCanvasPro
                                     <select
                                         className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                         value={selectedPh?.fontFamily || 'Inter'}
-                                        onChange={(e) => updateSelectedPlaceholder({ fontFamily: e.target.value })}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            const customMatch = customFonts.find(f => f.name === val);
+                                            updateSelectedPlaceholder({
+                                                fontFamily: val,
+                                                fontUrl: customMatch ? customMatch.url : undefined
+                                            });
+                                        }}
                                     >
-                                        <option value="Inter">Inter</option>
-                                        <option value="Arial">Arial</option>
-                                        <option value="Times New Roman">Times New Roman</option>
-                                        <option value="Courier New">Courier New</option>
-                                        <option value="Georgia">Georgia</option>
-                                        <option value="Trebuchet MS">Trebuchet MS</option>
+                                        <optgroup label="Standard Fonts">
+                                            <option value="Arial">Arial</option>
+                                            <option value="Times New Roman">Times New Roman</option>
+                                            <option value="Courier New">Courier New</option>
+                                            <option value="Georgia">Georgia</option>
+                                            <option value="Trebuchet MS">Trebuchet MS</option>
+                                        </optgroup>
+                                        <optgroup label="Google Fonts">
+                                            <option value="Inter">Inter</option>
+                                            <option value="Roboto">Roboto</option>
+                                            <option value="Playfair Display">Playfair Display</option>
+                                            <option value="Montserrat">Montserrat</option>
+                                            <option value="Lora">Lora</option>
+                                        </optgroup>
+                                        {customFonts.length > 0 && (
+                                            <optgroup label="Custom Uploads">
+                                                {customFonts.map(f => (
+                                                    <option key={f.name} value={f.name}>{f.name}</option>
+                                                ))}
+                                            </optgroup>
+                                        )}
                                     </select>
+
+                                    <input
+                                        type="file"
+                                        accept=".ttf,.otf"
+                                        className="hidden"
+                                        ref={fontInputRef}
+                                        onChange={handleFontUpload}
+                                    />
+                                    <button
+                                        onClick={() => fontInputRef.current?.click()}
+                                        disabled={isUploadingFont || isFontSaved}
+                                        className={`w-full mt-1 px-3 py-2 border border-dashed rounded-lg text-xs font-medium cursor-pointer transition-colors flex items-center justify-center gap-2 ${isUploadingFont
+                                            ? 'border-indigo-300 bg-indigo-50 text-indigo-400 cursor-wait'
+                                            : isFontSaved
+                                                ? 'border-emerald-300 bg-emerald-50 text-emerald-600'
+                                                : 'border-indigo-300 bg-indigo-50 hover:bg-slate-100 text-indigo-700'
+                                            }`}
+                                    >
+                                        <Type size={14} />
+                                        {isUploadingFont ? 'Uploading Font...' : isFontSaved ? '✓ Font Uploaded!' : 'Upload Custom Font (.TTF / .OTF)'}
+                                    </button>
 
                                     <div className="flex gap-2">
                                         <div className="flex-1">

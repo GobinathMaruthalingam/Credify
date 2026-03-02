@@ -4,8 +4,8 @@ import aiohttp
 from fastapi import UploadFile
 from dotenv import load_dotenv
 
-# Explicitly load credentials from the root Credify directory's .env file
-load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+# Explicitly load credentials from the root Credify directory's .env file, mapping overrides dynamically on hot-reloads
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"), override=True)
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -40,10 +40,23 @@ async def upload_file_to_s3(file: UploadFile, folder: str = "uploads") -> str:
         base_url = SUPABASE_URL.rstrip("/")
         upload_url = f"{base_url}/storage/v1/object/{SUPABASE_BUCKET_NAME}/{unique_filename}"
         
+        # Dynamically map correct MIME types to bypass browser omissions causing Supabase 415 Rejections
+        ext = file_extension.lower()
+        if ext == 'ttf':
+            mime_type = 'font/ttf'
+        elif ext == 'otf':
+            mime_type = 'font/otf'
+        elif ext in ('png', 'jpeg', 'jpg', 'webp'):
+            mime_type = f'image/{ext}'
+        elif ext == 'svg':
+            mime_type = 'image/svg+xml'
+        else:
+            mime_type = file.content_type or 'application/octet-stream'
+
         headers = {
             "Authorization": f"Bearer {SUPABASE_KEY}",
             "apikey": SUPABASE_KEY,
-            "Content-Type": file.content_type or "application/octet-stream"
+            "Content-Type": mime_type
         }
         
         async with aiohttp.ClientSession() as session:
