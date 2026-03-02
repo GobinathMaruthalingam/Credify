@@ -44,13 +44,13 @@ async def preview_certificate(req: PreviewRequest, current_user: User = Depends(
     try:
         template_bytes = await download_file(req.template_url)
         
-        # Load font bytes. If not provided, we could use a default, 
-        # but here we require a font URL for accurate previews.
-        if not req.font_url:
-             raise HTTPException(status_code=400, detail="font_url is required for preview")
+        if req.is_qrcode:
+            font_bytes = b""
+        else:
+            if not req.font_url:
+                raise HTTPException(status_code=400, detail="font_url is required for text rendering")
+            font_bytes = await download_file(req.font_url)
                 
-        font_bytes = await download_file(req.font_url)
-        
         result_bytes = generate_preview(
             template_bytes=template_bytes,
             font_bytes=font_bytes,
@@ -60,7 +60,9 @@ async def preview_certificate(req: PreviewRequest, current_user: User = Depends(
             bbox_width=req.bbox_width,
             bbox_height=req.bbox_height,
             text_color=req.text_color,
-            initial_font_size=req.font_size
+            initial_font_size=req.font_size,
+            is_qrcode=req.is_qrcode,
+            qr_url=req.qr_url
         )
         
         return StreamingResponse(io.BytesIO(result_bytes), media_type="image/png")

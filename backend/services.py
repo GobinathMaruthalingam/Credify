@@ -1,4 +1,5 @@
 import io
+import qrcode
 from PIL import Image, ImageDraw, ImageFont
 
 def get_font(font_bytes: bytes, text: str, max_width: int, max_height: int, initial_size: int):
@@ -26,28 +27,39 @@ def get_font(font_bytes: bytes, text: str, max_width: int, max_height: int, init
 
 def generate_preview(template_bytes: bytes, font_bytes: bytes, text: str, 
                      bbox_x: int, bbox_y: int, bbox_width: int, bbox_height: int,
-                     text_color: str, initial_font_size: int = 120, format: str = "PNG") -> bytes:
+                     text_color: str, initial_font_size: int = 120, format: str = "PNG",
+                     is_qrcode: bool = False, qr_url: str = None) -> bytes:
     """
     Generates a single certificate in memory and returns its bytes.
-    Useful for live /preview endpoint.
+    Useful for live /preview endpoint. Handles dynamic fonts and QR Code matrices.
     """
     img = Image.open(io.BytesIO(template_bytes)).convert("RGB")
-    draw = ImageDraw.Draw(img)
     
-    font = get_font(font_bytes, text, bbox_width, bbox_height, initial_font_size)
-    
-    bbox = font.getbbox(text)
-    text_width = bbox[2] - bbox[0]
-    text_height = bbox[3] - bbox[1]
-    
-    center_x = bbox_x + (bbox_width / 2)
-    center_y = bbox_y + (bbox_height / 2)
-    
-    adjusted_x = center_x - (text_width / 2)
-    adjusted_y = center_y - (text_height / 2)
-    
-    # Text color should be parsed correctly, assuming hex string like "#000000" or simple name
-    draw.text((adjusted_x, adjusted_y), text, fill=text_color, font=font)
+    if is_qrcode and qr_url:
+        qr = qrcode.QRCode(version=1, box_size=10, border=1)
+        qr.add_data(qr_url)
+        qr.make(fit=True)
+        # We must support alpha channel so we render onto the template cleanly
+        qr_img = qr.make_image(fill_color=text_color, back_color="transparent").convert("RGBA")
+        qr_img = qr_img.resize((bbox_width, bbox_height), Image.Resampling.LANCZOS)
+        
+        # Paste the QR matrix onto the main certificate canvas using itself as a transparency mask
+        img.paste(qr_img, (bbox_x, bbox_y), mask=qr_img)
+    else:
+        # Standard TrueType text rendering logic
+        draw = ImageDraw.Draw(img)
+        font = get_font(font_bytes, text, bbox_width, bbox_height, initial_font_size)
+        bbox = font.getbbox(text)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        
+        center_x = bbox_x + (bbox_width / 2)
+        center_y = bbox_y + (bbox_height / 2)
+        
+        adjusted_x = center_x - (text_width / 2)
+        adjusted_y = center_y - (text_height / 2)
+        
+        draw.text((adjusted_x, adjusted_y), text, fill=text_color, font=font)
     
     output_stream = io.BytesIO()
     img.save(output_stream, format=format)

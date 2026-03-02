@@ -8,12 +8,13 @@ from fastapi.staticfiles import StaticFiles
 
 from database import engine, Base
 import auth
-from routers import projects
+from routers import projects, verify
 
 app = FastAPI(title="Credify API", description="SaaS Backend for Credify Certificate Pipeline")
 
 app.include_router(auth.router)
 app.include_router(projects.router)
+app.include_router(verify.router)
 
 os.makedirs("local_storage/uploads", exist_ok=True)
 app.mount("/static", StaticFiles(directory="local_storage"), name="static")

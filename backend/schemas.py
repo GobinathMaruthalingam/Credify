@@ -29,3 +29,17 @@ class PreviewRequest(BaseModel):
     bbox_height: int
     text_color: str = "#000000"
     font_size: int = 120
+    is_qrcode: bool = False
+    qr_url: Optional[str] = None
+
+class CertificateResponse(BaseModel):
+    id: str
+    project_id: int
+    recipient_email: str
+    recipient_name: str
+    image_url: Optional[str] = None
+    issued_at: Any
+    is_revoked: bool
+    
+    class Config:
+        from_attributes = True
