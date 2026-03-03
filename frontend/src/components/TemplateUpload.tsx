@@ -1,19 +1,39 @@
-import { useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { FileImage, UploadCloud } from 'lucide-react';
+import { FileImage, UploadCloud, Loader2 } from 'lucide-react';
+import axios from 'axios';
 
 interface TemplateUploadProps {
-    onUpload: (fileUrl: string) => void;
+    onUpload: (fileUrl: string, fileName: string) => void;
 }
 
 export default function TemplateUpload({ onUpload }: TemplateUploadProps) {
-    const onDrop = useCallback((acceptedFiles: File[]) => {
-        // In a real app, we would upload this file to our FastAPI backend S3 endpoint here.
-        // For this mock interaction, we'll just create a local blob URL so we can render it on the canvas immediately.
+    const [isUploading, setIsUploading] = useState(false);
+
+    const onDrop = useCallback(async (acceptedFiles: File[]) => {
         if (acceptedFiles.length > 0) {
             const file = acceptedFiles[0];
-            const objectUrl = URL.createObjectURL(file);
-            onUpload(objectUrl);
+            setIsUploading(true);
+            try {
+                const token = localStorage.getItem("token") || "mock_token";
+                const formData = new FormData();
+                formData.append("file", file);
+
+                const res = await axios.post("http://localhost:8000/api/projects/upload", formData, {
+                    headers: {
+                        "Content-Type": "multipart/form-data",
+                        Authorization: `Bearer ${token}`
+                    }
+                });
+
+                const baseName = file.name.split('.').slice(0, -1).join('.') || file.name;
+                onUpload(res.data.url, baseName);
+            } catch (err) {
+                console.error("Upload failed", err);
+                alert("Failed to upload template to the cloud storage bucket.");
+            } finally {
+                setIsUploading(false);
+            }
         }
     }, [onUpload]);
 
@@ -32,11 +52,11 @@ export default function TemplateUpload({ onUpload }: TemplateUploadProps) {
             <input {...getInputProps()} />
             <div className="flex justify-center mb-4">
                 <div className={`p-4 rounded-full transition-colors ${isDragActive ? 'bg-indigo-100 text-indigo-600' : 'bg-white text-slate-400 shadow-sm'}`}>
-                    {isDragActive ? <UploadCloud size={40} /> : <FileImage size={40} />}
+                    {isUploading ? <Loader2 size={40} className="animate-spin text-indigo-500" /> : isDragActive ? <UploadCloud size={40} /> : <FileImage size={40} />}
                 </div>
             </div>
             <h3 className="text-xl font-semibold text-slate-800 mb-2">
-                {isDragActive ? "Drop template here..." : "Upload your Certificate Template"}
+                {isUploading ? "Uploading to secure cloud..." : isDragActive ? "Drop template here..." : "Upload your Certificate Template"}
             </h3>
             <p className="text-slate-500 max-w-sm mx-auto">
                 Drag and drop a PNG or JPG file here, or click to browse your computer.

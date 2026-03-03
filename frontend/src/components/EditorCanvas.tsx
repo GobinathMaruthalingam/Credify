@@ -2,13 +2,15 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from
 import { Stage, Layer, Image as KonvaImage, Text, Rect, Group, Transformer } from 'react-konva';
 import Konva from 'konva';
 import useImage from 'use-image';
-import { Type, MousePointer2, Undo2, Redo2, RotateCw, QrCode, Image as ImageIcon } from 'lucide-react';
+import { Type, MousePointer2, Undo2, Redo2, RotateCw, QrCode, Image as ImageIcon, Send } from 'lucide-react';
 
 import axios from 'axios';
+import DispatchModal from './DispatchModal';
 
 interface EditorCanvasProps {
     templateUrl: string;
     projectId: number | null;
+    initialMappingData?: any[] | null;
 }
 
 interface Placeholder {
@@ -40,10 +42,11 @@ const CanvasImage = ({ ph }: { ph: Placeholder }) => {
     );
 };
 
-export default function EditorCanvas({ templateUrl, projectId }: EditorCanvasProps) {
+export default function EditorCanvas({ templateUrl, projectId, initialMappingData }: EditorCanvasProps) {
     const [image] = useImage(templateUrl);
     const [isSaving, setIsSaving] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
+    const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false);
 
     // Calculate base scale directly from the image dimensions, replacing useEffect state-sync.
     const baseScale = React.useMemo(() => {
@@ -59,7 +62,7 @@ export default function EditorCanvas({ templateUrl, projectId }: EditorCanvasPro
     const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
 
     // Undo/Redo History State
-    const [history, setHistory] = useState<Placeholder[][]>([[]]);
+    const [history, setHistory] = useState<Placeholder[][]>([initialMappingData && initialMappingData.length > 0 ? initialMappingData : []]);
     const [historyStep, setHistoryStep] = useState(0);
 
     // Deriving current placeholders from history
@@ -695,11 +698,16 @@ export default function EditorCanvas({ templateUrl, projectId }: EditorCanvasPro
                             disabled={isSaving || isSaved || !projectId}
                             onClick={async () => {
                                 if (!projectId) return;
+
+                                const newName = window.prompt("Enter a name to save this Certificate Project:", "My Certificate");
+                                if (newName === null) return; // Action cancelled
+
                                 setIsSaving(true);
                                 try {
                                     const token = localStorage.getItem("token") || "mock_token";
                                     await axios.put(`http://localhost:8000/api/projects/${projectId}/mapping`, {
-                                        mapping_data: placeholders
+                                        mapping_data: placeholders,
+                                        name: newName
                                     }, {
                                         headers: { Authorization: `Bearer ${token}` }
                                     });
@@ -721,6 +729,14 @@ export default function EditorCanvas({ templateUrl, projectId }: EditorCanvasPro
                                 }`}
                         >
                             {isSaving ? 'Saving...' : isSaved ? '✓ Saved!' : 'Save Configuration'}
+                        </button>
+                        <button
+                            disabled={!projectId}
+                            onClick={() => setIsDispatchModalOpen(true)}
+                            className={`px-4 py-1.5 rounded-lg text-sm font-bold shadow-md transition-all flex items-center gap-2 ${!projectId ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200'
+                                }`}
+                        >
+                            <Send size={16} /> Dispatch
                         </button>
                     </div>
                 </div>
@@ -1071,6 +1087,14 @@ export default function EditorCanvas({ templateUrl, projectId }: EditorCanvasPro
                     </div>
                 )}
             </div>
+
+            {projectId && (
+                <DispatchModal
+                    projectId={projectId}
+                    isOpen={isDispatchModalOpen}
+                    onClose={() => setIsDispatchModalOpen(false)}
+                />
+            )}
         </div >
     );
 }

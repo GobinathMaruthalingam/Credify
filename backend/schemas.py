@@ -7,6 +7,7 @@ class ProjectCreate(BaseModel):
 
 class ProjectMappingUpdate(BaseModel):
     mapping_data: List[Any]
+    name: Optional[str] = None
 
 class ProjectResponse(BaseModel):
     id: int
@@ -41,5 +42,19 @@ class CertificateResponse(BaseModel):
     issued_at: Any
     is_revoked: bool
     
+    class Config:
+        from_attributes = True
+
+class DispatchJobResponse(BaseModel):
+    id: int
+    project_id: int
+    status: str
+    total_certificates: int
+    processed_certificates: int
+    successful_deliveries: int
+    failed_deliveries: int
+    created_at: Any
+    completed_at: Optional[Any] = None
+
     class Config:
         from_attributes = True

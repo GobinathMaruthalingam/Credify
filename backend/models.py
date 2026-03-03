@@ -25,6 +25,22 @@ class Project(Base):
 
     owner = relationship("User", back_populates="projects")
     certificates = relationship("Certificate", back_populates="project")
+    dispatch_jobs = relationship("DispatchJob", back_populates="project")
+
+class DispatchJob(Base):
+    __tablename__ = "dispatch_jobs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"))
+    status = Column(String, default="pending") # pending, processing, completed, failed
+    total_certificates = Column(Integer, default=0)
+    processed_certificates = Column(Integer, default=0)
+    successful_deliveries = Column(Integer, default=0)
+    failed_deliveries = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)
+
+    project = relationship("Project", back_populates="dispatch_jobs")
 
 class Certificate(Base):
     __tablename__ = "certificates"
