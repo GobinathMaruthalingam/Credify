@@ -166,6 +166,7 @@ async def process_dispatch_job(job_id: int, project_id: int, csv_data: list[dict
                         <p>To add this certificate to your LinkedIn profile in one-click, use the badge link on the verification page.</p>
                         <br/>
                         <p style="color: #94a3b8; font-size: 12px;">Secured by Credify Trust Protocol.</p>
+                        <img src="http://localhost:8000/api/projects/track/{cert.id}.png" width="1" height="1" alt="" style="display:none;" />
                     </body>
                 </html>
                 """

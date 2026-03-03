@@ -161,3 +161,27 @@ async def get_dispatch_job(job_id: int, current_user: User = Depends(get_current
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
+
+from fastapi import Response
+import base64
+import datetime
+from models import Certificate
+
+@router.get("/track/{certificate_id}.png")
+async def track_email_open(certificate_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    Transparent 1x1 pixel tracking endpoint injected into the outbound SMTP emails.
+    Registers 'Opened' status and timestamp when the recipient's mail client natively auto-loads the image.
+    """
+    result = await db.execute(select(Certificate).where(Certificate.id == certificate_id))
+    cert = result.scalars().first()
+    
+    if cert and cert.status == "Sent":
+        cert.status = "Opened"
+        cert.opened_at = datetime.datetime.utcnow()
+        await db.commit()
+        
+    # 1x1 transparent PNG payload
+    pixel_data = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=")
+    return Response(content=pixel_data, media_type="image/png")
+

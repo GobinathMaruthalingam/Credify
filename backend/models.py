@@ -52,5 +52,9 @@ class Certificate(Base):
     image_url = Column(String, nullable=True)     # The final composited certificate PNG/PDF S3 link
     issued_at = Column(DateTime, default=datetime.datetime.utcnow)
     is_revoked = Column(Boolean, default=False)
+    
+    # Delivery Analytics
+    status = Column(String, default="Sent") # Sent, Opened
+    opened_at = Column(DateTime, nullable=True)
 
     project = relationship("Project", back_populates="certificates")
