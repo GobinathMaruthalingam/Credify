@@ -1,24 +1,33 @@
 import { useState, useEffect } from "react";
-import { LayoutDashboard, FileImage, Settings, Send, LogOut } from "lucide-react";
+import { LayoutDashboard, FileImage, Settings, Send, LogOut, FileSignature, Activity, FolderKanban, History } from "lucide-react";
 import axios from "axios";
 import TemplateUpload from "../components/TemplateUpload";
 import EditorCanvas from "../components/EditorCanvas";
+import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
+    const navigate = useNavigate();
     const [templateUrl, setTemplateUrl] = useState<string | null>(null);
     const [projectId, setProjectId] = useState<number | null>(null);
     const [isCreatingProject, setIsCreatingProject] = useState(false);
     const [projectsList, setProjectsList] = useState<any[]>([]);
     const [initialMappingData, setInitialMappingData] = useState<any[] | null>(null);
+    const [kpiData, setKpiData] = useState<any>(null);
+    const [jobsList, setJobsList] = useState<any[]>([]);
 
     useEffect(() => {
         const fetchProjects = async () => {
             try {
                 const token = localStorage.getItem("token") || "mock_token";
-                const res = await axios.get("http://localhost:8000/api/projects/", {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                setProjectsList(res.data);
+                const [projRes, kpiRes, jobsRes] = await Promise.all([
+                    axios.get("http://localhost:8000/api/projects/", { headers: { Authorization: `Bearer ${token}` } }),
+                    axios.get("http://localhost:8000/api/projects/kpi", { headers: { Authorization: `Bearer ${token}` } }),
+                    axios.get("http://localhost:8000/api/projects/jobs", { headers: { Authorization: `Bearer ${token}` } })
+                ]);
+
+                setProjectsList(projRes.data);
+                setKpiData(kpiRes.data);
+                setJobsList(jobsRes.data);
             } catch (err) {
                 console.error("Failed to fetch projects list", err);
             }
@@ -92,35 +101,125 @@ export default function Dashboard() {
                             <p className="mt-4 text-slate-500 font-medium">Initializing Workspace...</p>
                         </div>
                     ) : !templateUrl ? (
-                        <div className="max-w-3xl mx-auto mt-12 animate-in fade-in zoom-in-95 duration-500">
-                            <TemplateUpload onUpload={handleUploadComplete} />
+                        <div className="max-w-5xl mx-auto mt-4 animate-in fade-in zoom-in-95 duration-500 space-y-8 pb-12">
 
-                            {projectsList.length > 0 && (
-                                <div className="mt-12">
-                                    <h3 className="text-sm border-b border-slate-200 pb-2 font-bold text-slate-500 uppercase tracking-widest mb-4">Resume Recent Project</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {projectsList.map(p => (
-                                            <div
-                                                key={p.id}
-                                                onClick={() => {
-                                                    setTemplateUrl(p.template_url);
-                                                    setProjectId(p.id);
-                                                    setInitialMappingData(p.mapping_data || []);
-                                                }}
-                                                className="bg-white p-4 rounded-xl border border-slate-200 hover:border-indigo-400 hover:shadow-md cursor-pointer transition-all flex items-center gap-4 group"
-                                            >
-                                                <div className="w-12 h-12 bg-indigo-50 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-indigo-100 transition-colors">
-                                                    <FileImage className="w-6 h-6 text-indigo-500" />
-                                                </div>
-                                                <div className="truncate">
-                                                    <h4 className="font-bold text-slate-800 truncate">{p.name || "Untitled Certificate"}</h4>
-                                                    <p className="text-xs text-slate-500 mt-0.5">Project ID: {p.id}</p>
-                                                </div>
-                                            </div>
-                                        ))}
+                            {/* Dashboard KPIs */}
+                            {kpiData && (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+                                        <div className="flex items-center gap-3 text-slate-500 mb-2">
+                                            <div className="p-2 bg-indigo-50 rounded-lg"><FileSignature size={20} className="text-indigo-500" /></div>
+                                            <span className="font-semibold text-sm">Total Dispatched</span>
+                                        </div>
+                                        <div className="text-4xl font-black text-slate-800 mt-2">{kpiData.total_certificates.toLocaleString()}</div>
+                                    </div>
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+                                        <div className="flex items-center gap-3 text-slate-500 mb-2">
+                                            <div className="p-2 bg-cyan-50 rounded-lg"><Activity size={20} className="text-cyan-500" /></div>
+                                            <span className="font-semibold text-sm">Average Open Rate</span>
+                                        </div>
+                                        <div className="text-4xl font-black text-slate-800 mt-2">{kpiData.hit_rate_percentage}%</div>
+                                    </div>
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+                                        <div className="flex items-center gap-3 text-slate-500 mb-2">
+                                            <div className="p-2 bg-purple-50 rounded-lg"><FolderKanban size={20} className="text-purple-500" /></div>
+                                            <span className="font-semibold text-sm">Active Campaigns</span>
+                                        </div>
+                                        <div className="text-4xl font-black text-slate-800 mt-2">{kpiData.total_projects}</div>
                                     </div>
                                 </div>
                             )}
+
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                                {/* Left Column: Action Items & History */}
+                                <div className="lg:col-span-2 space-y-8">
+                                    {/* Canvas upload */}
+                                    <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+                                        <h3 className="text-lg font-bold text-slate-800 mb-6">Launch New Campaign</h3>
+                                        <TemplateUpload onUpload={handleUploadComplete} />
+                                    </div>
+
+                                    {/* Dispatch History Table */}
+                                    {jobsList.length > 0 && (
+                                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mt-8">
+                                            <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+                                                <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                                    <History size={18} className="text-slate-400" />
+                                                    Dispatch History
+                                                </h3>
+                                            </div>
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-left text-sm whitespace-nowrap">
+                                                    <thead className="text-xs text-slate-500 uppercase bg-white border-b border-slate-100">
+                                                        <tr>
+                                                            <th className="px-6 py-4 font-semibold">Job ID</th>
+                                                            <th className="px-6 py-4 font-semibold">Date Dispatched</th>
+                                                            <th className="px-6 py-4 font-semibold">Delivery Status</th>
+                                                            <th className="px-6 py-4 font-semibold">Volume</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-100">
+                                                        {jobsList.map(job => (
+                                                            <tr key={job.id} className="hover:bg-slate-50/80 transition-colors">
+                                                                <td className="px-6 py-4 font-medium text-slate-900">#CRD-{String(job.id).padStart(4, '0')}</td>
+                                                                <td className="px-6 py-4 text-slate-500">
+                                                                    {new Date(job.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                                </td>
+                                                                <td className="px-6 py-4">
+                                                                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1 ${job.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                                                                        job.status === 'failed' ? 'bg-rose-100 text-rose-700' :
+                                                                            'bg-amber-100 text-amber-700 animate-pulse'
+                                                                        }`}>
+                                                                        {job.status === 'completed' ? '✓' : job.status === 'pending' ? '⚡' : '✕'} {job.status.toUpperCase()}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-6 py-4 text-slate-500 font-medium">
+                                                                    {job.total_certificates.toLocaleString()} Certs
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Right Column: Recent Projects Drawer */}
+                                <div className="lg:col-span-1">
+                                    {projectsList.length > 0 ? (
+                                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sticky top-24">
+                                            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4">Resume Drafts</h3>
+                                            <div className="flex flex-col gap-3">
+                                                {projectsList.map(p => (
+                                                    <div
+                                                        key={p.id}
+                                                        onClick={() => {
+                                                            setTemplateUrl(p.template_url);
+                                                            setProjectId(p.id);
+                                                            setInitialMappingData(p.mapping_data || []);
+                                                        }}
+                                                        className="bg-slate-50 p-4 rounded-xl border border-slate-200 hover:border-indigo-400 hover:shadow-md cursor-pointer transition-all flex items-center gap-4 group"
+                                                    >
+                                                        <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shrink-0 border border-slate-200 group-hover:border-indigo-300 transition-colors">
+                                                            <FileImage className="w-5 h-5 text-indigo-500" />
+                                                        </div>
+                                                        <div className="truncate">
+                                                            <h4 className="font-bold text-slate-700 truncate text-sm">{p.name || "Untitled Draft"}</h4>
+                                                            <p className="text-[11px] text-slate-400 mt-0.5 uppercase tracking-wide">ID: {p.id}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-white rounded-2xl border border-slate-200 border-dashed shadow-sm p-8 text-center text-slate-500 sticky top-24">
+                                            <FileImage className="w-12 h-12 mx-auto text-slate-300 mb-3" />
+                                            <p className="font-medium text-sm">No recent drafts found. Upload a template to start.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     ) : (
                         <div className="h-full flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -138,14 +237,17 @@ export default function Dashboard() {
                                     >
                                         Re-upload
                                     </button>
-                                    <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors shadow-sm">
+                                    <button
+                                        onClick={() => navigate(`/dispatch/${projectId}`)}
+                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors shadow-sm"
+                                    >
                                         Continue to Dispatch
                                     </button>
                                 </div>
                             </div>
                             <EditorCanvas
                                 key={projectId || 'new'}
-                                templateUrl={templateUrl}
+                                templateUrl={templateUrl!}
                                 projectId={projectId}
                                 initialMappingData={initialMappingData}
                             />
