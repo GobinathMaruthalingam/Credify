@@ -3,9 +3,8 @@ import { Stage, Layer, Image as KonvaImage, Text, Rect, Group, Transformer } fro
 import Konva from 'konva';
 import useImage from 'use-image';
 import { Type, MousePointer2, Undo2, Redo2, RotateCw, QrCode, Image as ImageIcon, Send } from 'lucide-react';
-
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import DispatchModal from './DispatchModal';
 
 interface EditorCanvasProps {
     templateUrl: string;
@@ -43,11 +42,10 @@ const CanvasImage = ({ ph }: { ph: Placeholder }) => {
 };
 
 export default function EditorCanvas({ templateUrl, projectId, initialMappingData }: EditorCanvasProps) {
+    const navigate = useNavigate();
     const [image] = useImage(templateUrl);
     const [isSaving, setIsSaving] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
-    const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false);
-
     // Calculate base scale directly from the image dimensions, replacing useEffect state-sync.
     const baseScale = React.useMemo(() => {
         if (!image) return 1;
@@ -612,18 +610,18 @@ export default function EditorCanvas({ templateUrl, projectId, initialMappingDat
             <div className="flex-1 bg-slate-200 rounded-2xl overflow-hidden border border-slate-300 shadow-inner relative flex flex-col" style={{ height: '70vh' }}>
 
                 {/* Editor Toolbar */}
-                <div className="bg-white border-b border-slate-200 p-3 flex justify-between items-center z-10 shadow-sm relative">
-                    <div className="flex gap-4 items-center">
-                        <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+                <div className="bg-white border-b border-slate-200 p-3 flex flex-wrap justify-between items-center gap-4 z-10 shadow-sm relative shrink-0">
+                    <div className="flex gap-4 items-center flex-wrap">
+                        <div className="flex flex-wrap bg-slate-100 p-1 rounded-lg border border-slate-200">
                             <button
                                 onClick={() => setMode('select')}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${mode === 'select' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${mode === 'select' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
                             >
                                 <MousePointer2 size={16} /> Select / Edit
                             </button>
                             <button
                                 onClick={() => { setMode('draw'); setSelectedId(null); }}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${mode === 'draw' ? 'bg-indigo-600 shadow-sm text-white' : 'text-slate-500 hover:text-slate-700'}`}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${mode === 'draw' ? 'bg-indigo-600 shadow-sm text-white' : 'text-slate-500 hover:text-slate-700'}`}
                             >
                                 <Type size={16} /> Draw Text Box
                             </button>
@@ -645,7 +643,7 @@ export default function EditorCanvas({ templateUrl, projectId, initialMappingDat
                                     setSelectedId(newId);
                                     setMode('select');
                                 }}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all text-slate-500 hover:text-slate-700`}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap text-slate-500 hover:text-slate-700`}
                             >
                                 <QrCode size={16} /> Add QR
                             </button>
@@ -660,13 +658,13 @@ export default function EditorCanvas({ templateUrl, projectId, initialMappingDat
                             <button
                                 onClick={() => fileInputRef.current?.click()}
                                 disabled={isUploadingLogo}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${isUploadingLogo ? 'opacity-50 cursor-not-allowed' : 'text-slate-500 hover:text-slate-700'}`}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${isUploadingLogo ? 'opacity-50 cursor-not-allowed' : 'text-slate-500 hover:text-slate-700'}`}
                             >
                                 <ImageIcon size={16} /> {isUploadingLogo ? 'Uploading...' : 'Custom Logo/Sig'}
                             </button>
                         </div>
 
-                        <span className="text-xs text-slate-500 border-l border-slate-300 pl-4 hidden md:block">
+                        <span className="text-xs text-slate-500 border-l border-slate-300 pl-4 hidden xl:block whitespace-nowrap">
                             {mode === 'draw'
                                 ? "Click and drag to draw."
                                 : "Click a box to resize/rotate it. Double-click to cycle alignment."}
@@ -674,7 +672,7 @@ export default function EditorCanvas({ templateUrl, projectId, initialMappingDat
                     </div>
 
                     {/* Undo/Redo & Save Controls */}
-                    <div className="flex gap-3 items-center">
+                    <div className="flex gap-3 items-center shrink-0">
                         <div className="flex gap-1 border-r border-slate-200 pr-3">
                             <button
                                 onClick={handleUndo}
@@ -719,7 +717,7 @@ export default function EditorCanvas({ templateUrl, projectId, initialMappingDat
                                     setIsSaving(false);
                                 }
                             }}
-                            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${isSaving
+                            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${isSaving
                                 ? 'bg-indigo-400 text-white cursor-wait'
                                 : isSaved
                                     ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
@@ -732,8 +730,8 @@ export default function EditorCanvas({ templateUrl, projectId, initialMappingDat
                         </button>
                         <button
                             disabled={!projectId}
-                            onClick={() => setIsDispatchModalOpen(true)}
-                            className={`px-4 py-1.5 rounded-lg text-sm font-bold shadow-md transition-all flex items-center gap-2 ${!projectId ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200'
+                            onClick={() => navigate(`/dispatch/${projectId}`)}
+                            className={`px-4 py-1.5 rounded-lg text-sm font-bold shadow-md transition-all whitespace-nowrap flex items-center gap-2 ${!projectId ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200'
                                 }`}
                         >
                             <Send size={16} /> Dispatch
@@ -1088,13 +1086,6 @@ export default function EditorCanvas({ templateUrl, projectId, initialMappingDat
                 )}
             </div>
 
-            {projectId && (
-                <DispatchModal
-                    projectId={projectId}
-                    isOpen={isDispatchModalOpen}
-                    onClose={() => setIsDispatchModalOpen(false)}
-                />
-            )}
         </div >
     );
 }
