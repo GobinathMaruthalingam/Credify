@@ -5,23 +5,42 @@ from PIL import Image, ImageDraw, ImageFont
 def get_font(font_bytes: bytes, text: str, max_width: int, max_height: int, initial_size: int):
     """
     Dynamically scales down the font size so that the text fits within max_width and max_height.
-    font_bytes is the raw TrueType font file content in memory.
+    font_bytes is the raw TrueType font file content in memory. 
+    If missing, falls back to Arial.
     """
     fontsize = initial_size
-    font_stream = io.BytesIO(font_bytes)
-    font = ImageFont.truetype(font_stream, fontsize)
+    
+    def _load(sz):
+        if font_bytes:
+            try:
+                return ImageFont.truetype(io.BytesIO(font_bytes), sz)
+            except Exception:
+                pass
+        
+        try:
+            return ImageFont.truetype("arial.ttf", sz)
+        except OSError:
+            try:
+                return ImageFont.truetype("DejaVuSans.ttf", sz)
+            except OSError:
+                return ImageFont.load_default()
+
+    font = _load(fontsize)
     
     while True:
-        bbox = font.getbbox(text)
-        width = bbox[2] - bbox[0]
-        height = bbox[3] - bbox[1]
+        # getbbox might not exist or might fail on bitmap fonts, use getlength/fallback
+        try:
+            bbox = font.getbbox(text)
+            width = bbox[2] - bbox[0]
+            height = bbox[3] - bbox[1]
+        except AttributeError:
+            width = font.getlength(text)
+            height = fontsize # rough estimation
+            
         if (width <= max_width and height <= max_height) or fontsize <= 10:
             break
         fontsize -= 2
-        
-        # Need to re-seek the stream for ImageFont to read it again
-        font_stream.seek(0)
-        font = ImageFont.truetype(font_stream, fontsize)
+        font = _load(fontsize)
         
     return font
 

@@ -3,7 +3,8 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import declarative_base, sessionmaker
 from dotenv import load_dotenv
 
-load_dotenv()
+env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+load_dotenv(env_path)
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./credify.db") # Using sqlite for local dev by default
 

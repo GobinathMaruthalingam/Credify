@@ -15,8 +15,6 @@ from models import DispatchJob, Project, Certificate
 from services import generate_preview
 from storage import upload_file_to_s3
 
-SENDER_EMAIL = os.getenv("SENDER_EMAIL")
-APP_PASSWORD = os.getenv("APP_PASSWORD")
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 
@@ -28,9 +26,12 @@ async def download_font_bytes(font_url: str) -> bytes:
             return await resp.read()
 
 def send_smtp_email_sync(recipient_email: str, subject: str, html_body: str):
+    SENDER_EMAIL = os.getenv("SENDER_EMAIL")
+    APP_PASSWORD = os.getenv("APP_PASSWORD")
+    
     if not SENDER_EMAIL or not APP_PASSWORD:
         print("SMTP Credentials missing inside .env. Bypassing email dispatch.")
-        return
+        raise ValueError("SMTP Credentials missing")
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
@@ -48,7 +49,7 @@ def send_smtp_email_sync(recipient_email: str, subject: str, html_body: str):
         print(f"Failed to send email to {recipient_email}: {e}")
         raise e
 
-async def process_dispatch_job(job_id: int, project_id: int, csv_data: list[dict]):
+async def process_dispatch_job(job_id: int, project_id: int, csv_data: list[dict], email_subject: str = "Your Verified Certificate", email_body: str = ""):
     """
     Background worker that iterates through the parsed CSV recipients, 
     generates their custom certificates natively in-memory, uploads to S3, 
@@ -149,32 +150,36 @@ async def process_dispatch_job(job_id: int, project_id: int, csv_data: list[dict
                 
                 # 4. Dispatch the SMTP Email
                 # Run SMTP blocking call inside asyncio threadpool so it doesn't freeze the async worker
-                html_body = f"""
-                <html>
-                    <body style="font-family: sans-serif; color: #334155;">
-                        <h2 style="color: #0f172a;">Congratulations, {recipient_name}!</h2>
-                        <p>Your verified digital certificate for <b>{project.name}</b> has been issued.</p>
-                        <p>You can view, download, and verify your credential globally on the blockchain-secured ledger via the link below:</p>
-                        
-                        <div style="margin: 30px 0;">
-                            <a href="http://localhost:5173/verify/{cert.id}" 
-                               style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">
-                               View Verified Credential
-                            </a>
-                        </div>
-                        
-                        <p>To add this certificate to your LinkedIn profile in one-click, use the badge link on the verification page.</p>
-                        <br/>
-                        <p style="color: #94a3b8; font-size: 12px;">Secured by Credify Trust Protocol.</p>
-                        <img src="http://localhost:8000/api/projects/track/{cert.id}.png" width="1" height="1" alt="" style="display:none;" />
-                    </body>
-                </html>
-                """
-                await asyncio.to_thread(send_smtp_email_sync, recipient_email, f"Your Verified Certificate: {project.name}", html_body)
+                
+                button_html = f'''
+                <div style="margin: 30px 0;">
+                    <a href="http://localhost:5173/verify/{cert.id}" 
+                       style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+                       View Verified Credential
+                    </a>
+                </div>
+                '''
+                
+                final_html = email_body.replace("{name}", recipient_name)
+                final_html = final_html.replace("{project_name}", project.name)
+                final_html = final_html.replace("{credential_button}", button_html)
+                
+                tracking_pixel = f'<img src="http://localhost:8000/api/projects/track/{cert.id}.png" width="1" height="1" alt="" style="display:none;" />'
+                if "</body>" in final_html:
+                    final_html = final_html.replace("</body>", f"{tracking_pixel}</body>")
+                else:
+                    final_html += tracking_pixel
+                
+                final_subject = email_subject.replace("{name}", recipient_name)
+                final_subject = final_subject.replace("{project_name}", project.name)
+
+                await asyncio.to_thread(send_smtp_email_sync, recipient_email, final_subject, final_html)
                 
                 job.successful_deliveries += 1
             except Exception as e:
+                import traceback
                 print(f"Error processing row for {recipient_email}: {e}")
+                traceback.print_exc()
                 job.failed_deliveries += 1
                 
             job.processed_certificates += 1

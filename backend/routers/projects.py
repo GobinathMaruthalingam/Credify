@@ -18,6 +18,8 @@ from pydantic import BaseModel
 
 class DispatchRequest(BaseModel):
     csv_data: list[dict]
+    email_subject: str
+    email_body: str
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -146,9 +148,7 @@ async def dispatch_project(project_id: int, req: DispatchRequest, background_tas
     db.add(job)
     await db.commit()
     await db.refresh(job)
-
-    background_tasks.add_task(process_dispatch_job, job.id, project.id, req.csv_data)
-
+    background_tasks.add_task(process_dispatch_job, job.id, project.id, req.csv_data, req.email_subject, req.email_body)
     return job
 
 @router.get("/jobs/{job_id}", response_model=DispatchJobResponse)
@@ -161,6 +161,55 @@ async def get_dispatch_job(job_id: int, current_user: User = Depends(get_current
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
+
+from sqlalchemy import func
+
+@router.get("/jobs", response_model=list[DispatchJobResponse])
+async def list_user_jobs(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Fetch all dispatch jobs belonging to the current user's projects."""
+    result = await db.execute(
+        select(DispatchJob)
+        .join(Project)
+        .where(Project.owner_id == current_user.id)
+        .order_by(DispatchJob.created_at.desc())
+    )
+    return result.scalars().all()
+
+@router.get("/kpi")
+async def get_user_kpis(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Calculate aggregate dashboard statistics for the logged-in user."""
+    # Total certificates dispatched
+    result = await db.execute(
+        select(func.sum(DispatchJob.total_certificates))
+        .join(Project)
+        .where(Project.owner_id == current_user.id)
+    )
+    total_certs = result.scalar() or 0
+    
+    # Total projects created
+    result_projects = await db.execute(
+        select(func.count(Project.id))
+        .where(Project.owner_id == current_user.id)
+    )
+    total_projects = result_projects.scalar() or 0
+    
+    # Track opened certificates
+    result_opened = await db.execute(
+        select(func.count(Certificate.id))
+        .join(Project)
+        .where(Project.owner_id == current_user.id)
+        .where(Certificate.status == "Opened")
+    )
+    total_opened = result_opened.scalar() or 0
+
+    hit_rate = (total_opened / total_certs * 100) if total_certs > 0 else 0
+    
+    return {
+        "total_certificates": total_certs,
+        "total_projects": total_projects,
+        "total_opened": total_opened,
+        "hit_rate_percentage": round(hit_rate, 1)
+    }
 
 from fastapi import Response
 import base64
