@@ -58,3 +58,15 @@ class Certificate(Base):
     opened_at = Column(DateTime, nullable=True)
 
     project = relationship("Project", back_populates="certificates")
+
+class FontAsset(Base):
+    """Persistent shared font library — persists uploaded custom fonts across all user sessions."""
+    __tablename__ = "font_assets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    family = Column(String, index=True)          # e.g. "Space Grotesk"
+    variant = Column(String)                      # e.g. "Regular", "Light", "Medium Bold"
+    storage_url = Column(String, unique=True)     # Permanent Supabase URL
+    file_name = Column(String)                    # Original filename for deduplication check
+    uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    uploaded_at = Column(DateTime, default=datetime.datetime.utcnow)

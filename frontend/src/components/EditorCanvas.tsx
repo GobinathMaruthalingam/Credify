@@ -153,10 +153,19 @@ export default function EditorCanvas({ templateUrl, projectId, initialMappingDat
     // Font Upload State
     const fontInputRef = useRef<HTMLInputElement>(null);
     const [isUploadingFont, setIsUploadingFont] = useState(false);
-    const [isFontSaved, setIsFontSaved] = useState(false);
 
-    // Globally cache uploaded session fonts to populate dropdown
-    const [customFonts, setCustomFonts] = useState<{ name: string, url: string }[]>([]);
+    // Persistent font library: { "Space Grotesk": [{variant, url, fontName}, ...], ... }
+    const [fontLibrary, setFontLibrary] = useState<Record<string, { variant: string; url: string; fontName: string }[]>>({});
+    const [fontUploadError, setFontUploadError] = useState<string | null>(null);
+    const [fontUploadSuccess, setFontUploadSuccess] = useState<string | null>(null);
+
+    // Fetch the shared font library on mount
+    useEffect(() => {
+        const token = localStorage.getItem("token") || "mock_token";
+        axios.get("http://localhost:8000/api/fonts", {
+            headers: { Authorization: `Bearer ${token}` }
+        }).then(res => setFontLibrary(res.data)).catch(() => { });
+    }, []);
 
     const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -197,41 +206,42 @@ export default function EditorCanvas({ templateUrl, projectId, initialMappingDat
 
     const handleFontUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file) {
-            alert("Upload Error: No file detected by the browser selector.");
-            return;
-        }
-        if (!selectedId) {
-            alert("Upload Error: No text placeholder is currently selected. Please click on a text element first.");
-            return;
-        }
+        if (!file) { alert("Upload Error: No file detected."); return; }
+        if (!selectedId) { alert("Upload Error: No text placeholder selected. Click a text element first."); return; }
+
         setIsUploadingFont(true);
+        setFontUploadError(null);
+        setFontUploadSuccess(null);
         try {
             const formData = new FormData();
             formData.append("file", file);
             const token = localStorage.getItem("token") || "mock_token";
-            const res = await axios.post("http://localhost:8000/api/projects/upload", formData, {
+            const res = await axios.post("http://localhost:8000/api/fonts/upload", formData, {
                 headers: { "Content-Type": "multipart/form-data", Authorization: `Bearer ${token}` }
             });
-            const url = res.data.url;
-            // Generate a safe unique font name from filename
-            const fontName = file.name.split('.')[0].replace(/[^a-zA-Z0-9]/g, '');
+            const { family, variant, fontName, url } = res.data;
 
-            // Add to session cache
-            setCustomFonts(prev => {
-                const filtered = prev.filter(f => f.name !== fontName);
-                return [...filtered, { name: fontName, url }];
-            });
+            // Inject the font face into the browser so Konva renders it immediately
+            const fontFace = new FontFace(fontName, `url(${url})`);
+            fontFace.load().then(f => { document.fonts.add(f); setHistory(h => [...h]); });
+
+            // Add to library state without refetch
+            setFontLibrary(prev => ({
+                ...prev,
+                [family]: [...(prev[family] || []), { variant, url, fontName }].sort((a, b) => a.variant.localeCompare(b.variant))
+            }));
 
             updateSelectedPlaceholder({ fontFamily: fontName, fontUrl: url });
-
-            setIsFontSaved(true);
-            setTimeout(() => setIsFontSaved(false), 2000);
-            setTimeout(() => setIsFontSaved(false), 2000);
-
+            setFontUploadSuccess(`"${fontName}" added to the font library!`);
+            setTimeout(() => setFontUploadSuccess(null), 3000);
         } catch (err: any) {
-            console.error("Failed to upload custom font", err);
-            alert(`Network Error: Failed to upload custom font. ${err?.response?.data?.detail || err.message}`);
+            const detail = err?.response?.data?.detail;
+            if (err?.response?.status === 409) {
+                setFontUploadError(detail || "This font already exists in the library.");
+            } else {
+                setFontUploadError(detail || "Failed to upload font. Please try again.");
+            }
+            setTimeout(() => setFontUploadError(null), 5000);
         } finally {
             setIsUploadingFont(false);
             if (fontInputRef.current) fontInputRef.current.value = '';
@@ -945,11 +955,13 @@ export default function EditorCanvas({ templateUrl, projectId, initialMappingDat
                                         value={selectedPh?.fontFamily || 'Inter'}
                                         onChange={(e) => {
                                             const val = e.target.value;
-                                            const customMatch = customFonts.find(f => f.name === val);
-                                            updateSelectedPlaceholder({
-                                                fontFamily: val,
-                                                fontUrl: customMatch ? customMatch.url : undefined
-                                            });
+                                            // Find the URL in the library for custom fonts
+                                            let fontUrl: string | undefined;
+                                            for (const variants of Object.values(fontLibrary)) {
+                                                const match = variants.find(v => v.fontName === val);
+                                                if (match) { fontUrl = match.url; break; }
+                                            }
+                                            updateSelectedPlaceholder({ fontFamily: val, fontUrl });
                                         }}
                                     >
                                         <optgroup label="Standard Fonts">
@@ -966,13 +978,15 @@ export default function EditorCanvas({ templateUrl, projectId, initialMappingDat
                                             <option value="Montserrat">Montserrat</option>
                                             <option value="Lora">Lora</option>
                                         </optgroup>
-                                        {customFonts.length > 0 && (
-                                            <optgroup label="Custom Uploads">
-                                                {customFonts.map(f => (
-                                                    <option key={f.name} value={f.name}>{f.name}</option>
+                                        {Object.entries(fontLibrary).map(([family, variants]) => (
+                                            <optgroup key={family} label={`📦 ${family}`}>
+                                                {variants.map(v => (
+                                                    <option key={v.fontName} value={v.fontName}>
+                                                        {v.variant}
+                                                    </option>
                                                 ))}
                                             </optgroup>
-                                        )}
+                                        ))}
                                     </select>
 
                                     <input
@@ -982,18 +996,31 @@ export default function EditorCanvas({ templateUrl, projectId, initialMappingDat
                                         ref={fontInputRef}
                                         onChange={handleFontUpload}
                                     />
+
+                                    {/* Upload status banners */}
+                                    {fontUploadError && (
+                                        <div className="flex items-start gap-2 p-2.5 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
+                                            <span className="text-red-500 shrink-0 mt-0.5">⚠</span>
+                                            <span>{fontUploadError}</span>
+                                        </div>
+                                    )}
+                                    {fontUploadSuccess && (
+                                        <div className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-700">
+                                            <span>✓</span>
+                                            <span>{fontUploadSuccess}</span>
+                                        </div>
+                                    )}
+
                                     <button
                                         onClick={() => fontInputRef.current?.click()}
-                                        disabled={isUploadingFont || isFontSaved}
+                                        disabled={isUploadingFont}
                                         className={`w-full mt-1 px-3 py-2 border border-dashed rounded-lg text-xs font-medium cursor-pointer transition-colors flex items-center justify-center gap-2 ${isUploadingFont
                                             ? 'border-indigo-300 bg-indigo-50 text-indigo-400 cursor-wait'
-                                            : isFontSaved
-                                                ? 'border-emerald-300 bg-emerald-50 text-emerald-600'
-                                                : 'border-indigo-300 bg-indigo-50 hover:bg-slate-100 text-indigo-700'
+                                            : 'border-indigo-300 bg-indigo-50 hover:bg-indigo-100 text-indigo-700'
                                             }`}
                                     >
                                         <Type size={14} />
-                                        {isUploadingFont ? 'Uploading Font...' : isFontSaved ? '✓ Font Uploaded!' : 'Upload Custom Font (.TTF / .OTF)'}
+                                        {isUploadingFont ? 'Uploading to Font Library...' : '+ Add Font to Library (.TTF / .OTF)'}
                                     </button>
 
                                     <div className="flex gap-2">

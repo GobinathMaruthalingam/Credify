@@ -8,20 +8,21 @@ from fastapi.staticfiles import StaticFiles
 
 from database import engine, Base
 import auth
-from routers import projects, verify
+from routers import projects, verify, fonts
 
 app = FastAPI(title="Credify API", description="SaaS Backend for Credify Certificate Pipeline")
 
 app.include_router(auth.router)
 app.include_router(projects.router)
 app.include_router(verify.router)
+app.include_router(fonts.router)
 
 os.makedirs("local_storage/uploads", exist_ok=True)
 app.mount("/static", StaticFiles(directory="local_storage"), name="static")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

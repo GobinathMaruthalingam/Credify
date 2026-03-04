@@ -11,7 +11,7 @@ from fastapi import UploadFile
 import io
 
 from database import AsyncSessionLocal
-from models import DispatchJob, Project, Certificate
+from models import DispatchJob, Project, Certificate, FontAsset
 from services import generate_preview
 from storage import upload_file_to_s3
 
@@ -76,12 +76,34 @@ async def process_dispatch_job(job_id: int, project_id: int, csv_data: list[dict
             async with session.get(project.template_url) as resp:
                 template_bytes = await resp.read()
 
-        # Pre-cache font binaries mapping
-        font_cache = {}
+        # Pre-cache font binaries mapping — try saved fontUrl first, then look up persistent library
+        font_cache: dict[str, bytes] = {}
         for ph in project.mapping_data:
-            url = ph.get("fontUrl")
+            url = ph.get("fontUrl", "")
+            family_name = ph.get("fontFamily", "")
+
             if url and url not in font_cache:
-                font_cache[url] = await download_font_bytes(url)
+                # Direct URL from mapping — fetch it
+                try:
+                    font_cache[url] = await download_font_bytes(url)
+                except Exception:
+                    font_cache[url] = b""  # fallback handled in services.py
+
+            elif not url and family_name:
+                # fontUrl missing (stale config) — look up from persistent font library by fontFamily
+                db_font = await db.execute(
+                    select(FontAsset).where(
+                        (FontAsset.family + " " + FontAsset.variant) == family_name
+                    )
+                )
+                asset = db_font.scalars().first()
+                if asset and asset.storage_url not in font_cache:
+                    try:
+                        font_cache[asset.storage_url] = await download_font_bytes(asset.storage_url)
+                        # Patch the placeholder so below rendering code picks up the resolved URL
+                        ph["fontUrl"] = asset.storage_url
+                    except Exception:
+                        font_cache[asset.storage_url] = b""
 
         for row in csv_data:
             recipient_email = None
@@ -122,7 +144,8 @@ async def process_dispatch_job(job_id: int, project_id: int, csv_data: list[dict
                     text_value = row.get(ph_name, f"Sample {ph_name}")
                     
                     is_qr = (ph.get("type") == "qrcode")
-                    qr_url = f"http://localhost:5173/verify/{cert.id}" if is_qr else None
+                    frontend_bg_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip('/')
+                    qr_url = f"{frontend_bg_url}/verify/{cert.id}" if is_qr else None
                     
                     font_url = ph.get("fontUrl", "")
                     f_bytes = font_cache.get(font_url, b"")
@@ -151,9 +174,10 @@ async def process_dispatch_job(job_id: int, project_id: int, csv_data: list[dict
                 # 4. Dispatch the SMTP Email
                 # Run SMTP blocking call inside asyncio threadpool so it doesn't freeze the async worker
                 
+                frontend_bg_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip('/')
                 button_html = f'''
                 <div style="margin: 30px 0;">
-                    <a href="http://localhost:5173/verify/{cert.id}" 
+                    <a href="{frontend_bg_url}/verify/{cert.id}" 
                        style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
                        View Verified Credential
                     </a>
@@ -164,11 +188,17 @@ async def process_dispatch_job(job_id: int, project_id: int, csv_data: list[dict
                 final_html = final_html.replace("{project_name}", project.name)
                 final_html = final_html.replace("{credential_button}", button_html)
                 
-                tracking_pixel = f'<img src="http://localhost:8000/api/projects/track/{cert.id}.png" width="1" height="1" alt="" style="display:none;" />'
+                backend_api_url = os.getenv("BACKEND_URL", "http://localhost:8000").rstrip('/')
+                tracking_logo = f'''
+                <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                    <p style="color: #64748b; font-size: 12px; margin-bottom: 8px; font-weight: 500;">Powered & Verified by</p>
+                    <img src="{backend_api_url}/api/projects/track/{cert.id}.svg" height="28" alt="Credify" style="display:inline-block; outline:none; text-decoration:none; border:none;" />
+                </div>
+                '''
                 if "</body>" in final_html:
-                    final_html = final_html.replace("</body>", f"{tracking_pixel}</body>")
+                    final_html = final_html.replace("</body>", f"{tracking_logo}</body>")
                 else:
-                    final_html += tracking_pixel
+                    final_html += tracking_logo
                 
                 final_subject = email_subject.replace("{name}", recipient_name)
                 final_subject = final_subject.replace("{project_name}", project.name)
