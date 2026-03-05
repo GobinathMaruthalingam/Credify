@@ -1,25 +1,43 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { Loader2, CheckCircle2, XCircle, Send, UploadCloud, FileSpreadsheet, Edit3, ArrowLeft } from 'lucide-react';
 import Papa from 'papaparse';
-import ReactQuill from 'react-quill-new';
+import ReactQuill, { Quill } from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import { useParams, useNavigate } from 'react-router-dom';
+import '../App.css';
+import ColorPickerButton from '../components/ColorPickerButton';
+import FontSizeController from '../components/FontSizeController';
+
+// Register custom inline style size attributor so we can use arbitrary pixel sizes (8px - 100px)
+const Size = Quill.import('attributors/style/size') as any;
+Size.whitelist = Array.from({ length: 93 }, (_, i) => `${i + 8}px`);
+Quill.register(Size, true);
+
+const TOOLBAR_ID = 'credify-quill-toolbar';
 
 const quillModules = {
-    toolbar: [
-        [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-        [{ 'font': [] }],
-        [{ 'size': ['small', false, 'large', 'huge'] }],
-        ['bold', 'italic', 'underline', 'strike'],
-        [{ 'color': [] }, { 'background': [] }],
-        [{ 'align': [] }],
-        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-        [{ 'indent': '-1' }, { 'indent': '+1' }],
-        ['link', 'image', 'video'],
-        ['clean']
-    ]
+    toolbar: {
+        container: `#${TOOLBAR_ID}`,
+    },
+    history: {
+        delay: 400,
+        maxStack: 100,
+        userOnly: true,
+    },
 };
+
+const quillFormats = [
+    'header', 'font', 'size',
+    'bold', 'italic', 'underline', 'strike', 'code',
+    'blockquote', 'code-block',
+    'color', 'background',
+    'align',
+    'list', 'bullet', 'indent',
+    'link', 'image', 'video',
+    'script',
+    'clean',
+];
 
 export default function DispatchPage() {
     const { id } = useParams<{ id: string }>();
@@ -34,6 +52,44 @@ export default function DispatchPage() {
     const [fileName, setFileName] = useState<string | null>(null);
     const [fileError, setFileError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const quillRef = useRef<ReactQuill>(null);
+
+    const handleUndo = useCallback(() => {
+        const editor = (quillRef.current as any)?.getEditor?.();
+        editor?.history?.undo();
+    }, []);
+
+    const handleRedo = useCallback(() => {
+        const editor = (quillRef.current as any)?.getEditor?.();
+        editor?.history?.redo();
+    }, []);
+
+    // Strip Quill-generated native `title` attributes from toolbar after mount
+    // Quill auto-adds `title` to its picker spans which causes the browser white tooltip
+    useEffect(() => {
+        const stripTitles = () => {
+            const toolbar = document.getElementById(TOOLBAR_ID);
+            if (!toolbar) return;
+            // Strip all auto-generated title attrs and migrate to data-tooltip
+            toolbar.querySelectorAll('[title]').forEach((el) => {
+                const text = el.getAttribute('title');
+                if (text && !el.getAttribute('data-tooltip')) {
+                    el.setAttribute('data-tooltip', text);
+                }
+                el.removeAttribute('title');
+            });
+            // Color pickers get no auto-title from Quill — label them explicitly
+            const colorLabel = toolbar.querySelector('.ql-color .ql-picker-label');
+            if (colorLabel && !colorLabel.getAttribute('data-tooltip'))
+                colorLabel.setAttribute('data-tooltip', 'Text Color');
+            const bgLabel = toolbar.querySelector('.ql-background .ql-picker-label');
+            if (bgLabel && !bgLabel.getAttribute('data-tooltip'))
+                bgLabel.setAttribute('data-tooltip', 'Highlight Color');
+        };
+        // Run after Quill has fully rendered its picker UI
+        const t = setTimeout(stripTitles, 300);
+        return () => clearTimeout(t);
+    }, []);
 
     // Compose State
     const [emailSubject, setEmailSubject] = useState("");
@@ -255,7 +311,7 @@ export default function DispatchPage() {
                                     </div>
                                 </div>
 
-                                <div className="space-y-0 relative z-0">
+                                <div className="space-y-0 relative">
                                     <div className="flex items-end justify-between relative z-10">
                                         <div className="flex">
                                             <button
@@ -280,15 +336,147 @@ export default function DispatchPage() {
                                             </button>
                                         </div>
                                     </div>
-                                    <div className="border border-slate-200 rounded-b-xl rounded-tr-xl bg-white relative z-0 overflow-hidden shadow-sm">
+                                    <div className="border border-slate-200 rounded-b-xl rounded-tr-xl bg-white relative shadow-sm" style={{ overflow: 'visible' }}>
                                         <div className="relative w-full h-[450px]">
                                             <div className={`absolute inset-0 transition-opacity duration-300 ${editorMode === 'lexical' ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}>
+                                                <div id={TOOLBAR_ID} className="ql-toolbar ql-snow" style={{ position: 'relative', zIndex: 50, overflow: 'visible' }}>
+                                                    {/* Group 1: Undo / Redo */}
+                                                    <span className="ql-formats" data-group="undo-redo">
+                                                        <button className="ql-undo" data-tooltip="Undo (Ctrl+Z)" onClick={handleUndo}>
+                                                            <svg viewBox="0 0 18 18"><polygon className="ql-fill ql-stroke" points="6 10 4 12 2 10 6 10" /><path className="ql-stroke" d="M8.09,13.91A4.6,4.6,0,0,0,9,14,5,5,0,1,0,4,9" /></svg>
+                                                        </button>
+                                                        <button className="ql-redo" data-tooltip="Redo (Ctrl+Y)" onClick={handleRedo}>
+                                                            <svg viewBox="0 0 18 18"><polygon className="ql-fill ql-stroke" points="12 10 14 12 16 10 12 10" /><path className="ql-stroke" d="M9.91,13.91A4.6,4.6,0,0,1,9,14,5,5,0,1,1,14,9" /></svg>
+                                                        </button>
+                                                    </span>
+
+                                                    {/* Group 2: Text Style (heading/list/blockquote/code-block) */}
+                                                    <span className="ql-formats">
+                                                        <select className="ql-header" data-tooltip="Text Style" defaultValue="">
+                                                            <option value="">Normal</option>
+                                                            <option value="1">Heading 1</option>
+                                                            <option value="2">Heading 2</option>
+                                                            <option value="3">Heading 3</option>
+                                                            <option value="4">Heading 4</option>
+                                                            <option value="5">Heading 5</option>
+                                                            <option value="6">Heading 6</option>
+                                                        </select>
+                                                    </span>
+                                                    <span className="ql-formats">
+                                                        <button className="ql-list" value="bullet" data-tooltip="Bulleted List" />
+                                                        <button className="ql-list" value="ordered" data-tooltip="Numbered List" />
+                                                        <button className="ql-blockquote" data-tooltip="Quote" />
+                                                        <button className="ql-code-block" data-tooltip="Code Block" />
+                                                    </span>
+
+                                                    {/* Group 3: Insert */}
+                                                    <span className="ql-formats">
+                                                        <button className="ql-link" data-tooltip="Insert Link" />
+                                                        <button className="ql-image" data-tooltip="Insert Image" />
+                                                        <button className="ql-video" data-tooltip="Insert YouTube / Video" />
+                                                    </span>
+
+                                                    {/* Group 4: Alignment — use buttons instead of select to avoid Quill picker title */}
+                                                    <span className="ql-formats">
+                                                        <button className="ql-align" value="" data-tooltip="Left Align" />
+                                                        <button className="ql-align" value="center" data-tooltip="Center Align" />
+                                                        <button className="ql-align" value="right" data-tooltip="Right Align" />
+                                                        <button className="ql-align" value="justify" data-tooltip="Justify" />
+                                                    </span>
+
+                                                    {/* Group 5: Font Size */}
+                                                    <span className="ql-formats">
+                                                        <FontSizeController quillRef={quillRef} defaultSize={15} />
+                                                    </span>
+
+                                                    {/* Group 6: Text Formatting */}
+                                                    <span className="ql-formats">
+                                                        <button className="ql-bold" data-tooltip="Bold" />
+                                                        <button className="ql-italic" data-tooltip="Italic" />
+                                                        <button className="ql-underline" data-tooltip="Underline" />
+                                                        <button className="ql-strike" data-tooltip="Strikethrough" />
+                                                        <button className="ql-code" data-tooltip="Inline Code" />
+                                                    </span>
+                                                    <span className="ql-formats" style={{ borderRight: 'none' }}>
+                                                        {/* Custom Text Color picker */}
+                                                        <ColorPickerButton
+                                                            format="color"
+                                                            defaultColor="#000000"
+                                                            label="Text Color"
+                                                            quillRef={quillRef}
+                                                            icon={
+                                                                <svg viewBox="0 0 18 18" width="16" height="16">
+                                                                    {/* Bold geometric A: two legs + crossbar */}
+                                                                    <path
+                                                                        d="M4 14 L9 3 L14 14"
+                                                                        fill="none"
+                                                                        stroke="currentColor"
+                                                                        strokeWidth="2.5"
+                                                                        strokeLinecap="round"
+                                                                        strokeLinejoin="round"
+                                                                    />
+                                                                    <line
+                                                                        x1="6.5" y1="10"
+                                                                        x2="11.5" y2="10"
+                                                                        stroke="currentColor"
+                                                                        strokeWidth="2"
+                                                                        strokeLinecap="round"
+                                                                    />
+                                                                </svg>
+                                                            }
+                                                        />
+                                                        {/* Custom Highlight Color picker */}
+                                                        <ColorPickerButton
+                                                            format="background"
+                                                            defaultColor="#FFFF00"
+                                                            label="Highlight Color"
+                                                            quillRef={quillRef}
+                                                            icon={
+                                                                <svg width="16" height="16" viewBox="0 0 24 24" version="1.1" xmlns="http://www.w3.org/2000/svg">
+
+                                                                    <title>ic_fluent_highlight_24_regular</title>
+                                                                    <desc>Created with Sketch.</desc>
+                                                                    <g id="🔍-Product-Icons" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+                                                                        <g id="ic_fluent_highlight_24_regular" fill="#212121" fill-rule="nonzero">
+                                                                            <path d="M20.2585648,2.00438474 C20.6382605,2.00472706 20.9518016,2.28716326 21.0011348,2.65328337 L21.0078899,2.75506004 L21.0038407,7.25276883 C21.0009137,8.40908568 20.1270954,9.36072944 19.0029371,9.48671858 L19.0024932,11.7464847 C19.0024932,12.9373487 18.0773316,13.9121296 16.906542,13.9912939 L16.7524932,13.9964847 L16.501,13.9963847 L16.5017549,16.7881212 C16.5017549,17.6030744 16.0616895,18.349347 15.3600767,18.7462439 L15.2057929,18.8258433 L8.57108142,21.9321389 C8.10484975,22.1504232 7.57411944,21.8450614 7.50959937,21.3535767 L7.50306874,21.2528982 L7.503,13.9963847 L7.25,13.9964847 C6.05913601,13.9964847 5.08435508,13.0713231 5.00519081,11.9005335 L5,11.7464847 L5.00043957,9.4871861 C3.92882124,9.36893736 3.08392302,8.49812196 3.0058865,7.41488149 L3,7.25086975 L3,2.75438506 C3,2.3401715 3.33578644,2.00438474 3.75,2.00438474 C4.12969577,2.00438474 4.44349096,2.28653894 4.49315338,2.6526145 L4.5,2.75438506 L4.5,7.25086975 C4.5,7.63056552 4.78215388,7.94436071 5.14822944,7.99402313 L5.25,8.00086975 L18.7512697,8.00087075 C19.1315998,8.00025031 19.4461483,7.71759877 19.4967392,7.3518545 L19.5038434,7.25019537 L19.5078902,2.75371008 C19.508263,2.33949668 19.8443515,2.00401258 20.2585648,2.00438474 Z M15.001,13.9963847 L9.003,13.9963847 L9.00306874,20.0736262 L14.5697676,17.4673619 C14.8004131,17.3593763 14.9581692,17.1431606 14.9940044,16.89581 L15.0017549,16.7881212 L15.001,13.9963847 Z M17.502,9.50038474 L6.5,9.50038474 L6.5,11.7464847 C6.5,12.1261805 6.78215388,12.4399757 7.14822944,12.4896381 L7.25,12.4964847 L16.7524932,12.4964847 C17.1321889,12.4964847 17.4459841,12.2143308 17.4956465,11.8482552 L17.5024932,11.7464847 L17.502,9.50038474 Z" id="🎨-Color"></path>
+                                                                        </g>
+                                                                    </g>
+                                                                </svg>
+                                                            }
+                                                        />
+                                                    </span>
+                                                    <span className="ql-formats">
+                                                        <button className="ql-script" value="sub" data-tooltip="Subscript" />
+                                                        <button className="ql-script" value="super" data-tooltip="Superscript" />
+                                                    </span>
+                                                    <span className="ql-formats">
+                                                        <button className="ql-indent" value="-1" data-tooltip="Decrease Indent" />
+                                                        <button className="ql-indent" value="+1" data-tooltip="Increase Indent" />
+                                                    </span>
+
+                                                    {/* Clear formatting + Clear All editor */}
+                                                    <span className="ql-formats">
+                                                        <button className="ql-clean" data-tooltip="Clear Formatting" />
+                                                        <button
+                                                            data-tooltip="Clear All Text"
+                                                            onClick={() => setEmailBody('')}
+                                                            style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}
+                                                        >
+                                                            <svg viewBox="0 0 18 18" style={{ width: 16, height: 16 }}>
+                                                                <polyline className="ql-stroke" points="3 3 15 15" />
+                                                                <polyline className="ql-stroke" points="15 3 3 15" />
+                                                            </svg>
+                                                        </button>
+                                                    </span>
+                                                </div>
                                                 <ReactQuill
+                                                    ref={quillRef}
                                                     theme="snow"
                                                     value={emailBody}
                                                     onChange={setEmailBody}
                                                     modules={quillModules}
-                                                    className="h-[407px] border-none [&_.ql-toolbar]:border-x-0 [&_.ql-toolbar]:border-t-0 [&_.ql-toolbar]:border-b-slate-200 [&_.ql-container]:border-none [&_.ql-toolbar]:bg-white [&_.ql-toolbar]:py-3"
+                                                    formats={quillFormats}
+                                                    className="credify-quill h-[390px] border-none [&_.ql-toolbar]:hidden [&_.ql-container]:border-none [&_.ql-editor]:min-h-[340px] [&_.ql-editor]:text-slate-800 [&_.ql-editor]:leading-relaxed [&_.ql-editor]:text-[15px] [&_.ql-editor]:p-5"
                                                 />
                                             </div>
                                             <div className={`absolute inset-0 transition-opacity duration-300 ${editorMode === 'html' ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}>
@@ -339,61 +527,87 @@ export default function DispatchPage() {
                         )}
 
                         {step === 'dispatching' && (
-                            <div className="space-y-8 max-w-2xl mx-auto py-8 text-center animate-in zoom-in-95 duration-500">
-                                <div>
-                                    <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">Delivery Progress</p>
-                                    <div className="flex justify-center items-end gap-3">
-                                        <h4 className="text-5xl font-black text-slate-800 tracking-tight">
-                                            {Math.min(stats.processed, stats.total)}
-                                        </h4>
-                                        <span className="text-slate-400 text-2xl font-bold mb-1">/ {stats.total}</span>
-                                    </div>
-                                </div>
-
-                                {/* Progress Bar */}
-                                <div className="w-full h-6 bg-slate-100 rounded-full overflow-hidden shrink-0 shadow-inner">
-                                    <div
-                                        className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 transition-all duration-300 ease-out"
-                                        style={{ width: `${progressPercent}%` }}
-                                    />
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-6 text-left">
-                                    <div className="bg-emerald-50 rounded-2xl p-6 border border-emerald-100 shadow-sm">
-                                        <div className="flex items-center gap-2 text-emerald-600 font-bold mb-2">
-                                            <CheckCircle2 className="w-5 h-5" /> Delivered Successfully
+                            <div className="max-w-3xl mx-auto py-8 text-center animate-in zoom-in-95 duration-500">
+                                {/* Analytics Panel */}
+                                {status !== 'idle' && (
+                                    <div className="w-full bg-white/80 backdrop-blur-2xl border border-white/40 rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] p-12 flex flex-col justify-center text-center animate-in slide-in-from-right-8 duration-500 ring-1 ring-slate-900/5">
+                                        <div className="space-y-1 mb-8">
+                                            <h3 className="text-3xl font-black tracking-tight text-slate-800 mb-2">
+                                                Live Dispatch Sequence
+                                            </h3>
+                                            <p className="text-slate-500 font-medium text-[15px]">
+                                                Processing delivery for <span className="font-bold text-indigo-600 px-1 py-0.5 bg-indigo-50 rounded-md">{csvData.length} recipients</span>.
+                                            </p>
                                         </div>
-                                        <p className="text-4xl font-black text-emerald-700">{stats.success}</p>
-                                    </div>
-                                    <div className="bg-rose-50 rounded-2xl p-6 border border-rose-100 shadow-sm">
-                                        <div className="flex items-center gap-2 text-rose-600 font-bold mb-2">
-                                            <XCircle className="w-5 h-5" /> Blocks / Bounces
-                                        </div>
-                                        <p className="text-4xl font-black text-rose-700">{stats.failed}</p>
-                                    </div>
-                                </div>
 
-                                <div className="pt-6">
-                                    {status === 'processing' || status === 'starting' ? (
-                                        <div className="inline-flex items-center gap-3 text-indigo-600 font-bold text-lg px-6 py-3 bg-indigo-50 border border-indigo-100 rounded-full animate-pulse">
-                                            <Loader2 className="w-5 h-5 animate-spin" />
-                                            Milling Certificates in Background Pipeline...
-                                        </div>
-                                    ) : status === 'completed' ? (
-                                        <div className="inline-flex flex-col items-center gap-4 w-full">
-                                            <div className="w-full flex items-center justify-center gap-3 text-emerald-600 font-black text-xl px-6 py-4 bg-emerald-50 border-2 border-emerald-200 rounded-2xl">
-                                                <CheckCircle2 className="w-8 h-8" />
-                                                Dispatch Sequence Finished!
+                                        {/* Progress Bar */}
+                                        <div className="w-full mb-10 relative">
+                                            <div className="flex justify-between text-xs font-bold text-slate-400 mb-3 px-1 uppercase tracking-wider">
+                                                <span>Progress</span>
+                                                <span>{Math.round(progressPercent)}%</span>
                                             </div>
-                                            <button onClick={() => navigate('/dashboard')} className="mt-4 px-6 py-2 text-slate-500 font-bold hover:text-slate-800 transition-colors">Return to Dashboard</button>
+                                            <div className="w-full h-4 bg-slate-100 rounded-full overflow-hidden shadow-inner ring-1 ring-inset ring-slate-200/50">
+                                                <div
+                                                    className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400 transition-all duration-700 ease-out relative"
+                                                    style={{ width: `${progressPercent}%` }}
+                                                >
+                                                    <div className="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite] w-full" style={{ backgroundImage: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)' }} />
+                                                </div>
+                                            </div>
                                         </div>
-                                    ) : (
-                                        <div className="text-rose-500 font-bold bg-rose-50 px-6 py-4 rounded-xl border-2 border-rose-100 flex flex-col items-center gap-2">
-                                            <XCircle className="w-8 h-8" />
-                                            <p>Background Job Failed. Check Server Logs.</p>
+
+                                        <div className="grid grid-cols-2 gap-5 text-left mb-10">
+                                            <div className="bg-[#f2fdf7] rounded-3xl p-6 border border-[#dcfce3] shadow-sm transform transition-all duration-300 hover:scale-[1.03] hover:shadow-md relative overflow-hidden group">
+                                                <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-10 transition-opacity">
+                                                    <CheckCircle2 className="w-24 h-24 text-[#059669]" />
+                                                </div>
+                                                <div className="flex items-center gap-2 mb-6 text-[#059669]">
+                                                    <CheckCircle2 className="w-7 h-7 stroke-[2.5]" />
+                                                    <div className="font-bold text-[15px] leading-tight tracking-tight">
+                                                        Delivered<br />Successfully
+                                                    </div>
+                                                </div>
+                                                <p className="text-[44px] font-black text-[#047857] leading-none tracking-tighter">{stats.success}</p>
+                                            </div>
+                                            <div className="bg-[#fff6f7] rounded-3xl p-6 border border-[#fce8eb] shadow-sm transform transition-all duration-300 hover:scale-[1.03] hover:shadow-md relative overflow-hidden group">
+                                                <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-10 transition-opacity">
+                                                    <XCircle className="w-24 h-24 text-[#e11d48]" />
+                                                </div>
+                                                <div className="flex items-center gap-2 mb-6 text-[#e11d48]">
+                                                    <XCircle className="w-7 h-7 stroke-[2.5]" />
+                                                    <div className="font-bold text-[15px] leading-tight tracking-tight">
+                                                        Blocks / Bounces
+                                                    </div>
+                                                </div>
+                                                <p className="text-[44px] font-black text-[#be123c] leading-none tracking-tighter">{stats.failed}</p>
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
+
+                                        <div className="pt-2">
+                                            {status === 'processing' || status === 'starting' ? (
+                                                <div className="inline-flex items-center gap-3 text-indigo-700 font-bold text-[15px] px-8 py-4 bg-indigo-50/80 border border-indigo-100 rounded-2xl animate-pulse shadow-sm w-full justify-center">
+                                                    <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
+                                                    Milling Pipeline Engine...
+                                                </div>
+                                            ) : status === 'completed' ? (
+                                                <div className="flex flex-col items-center gap-4 w-full animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                                    <div className="w-full flex items-center justify-center gap-3 text-emerald-700 font-black text-lg px-8 py-5 bg-[#f0fdf4] border border-[#bbf7d0] rounded-2xl shadow-sm">
+                                                        <CheckCircle2 className="w-6 h-6" />
+                                                        Dispatch Sequence Finished!
+                                                    </div>
+                                                    <button onClick={() => navigate('/dashboard')} className="w-full px-6 py-4 text-slate-500 font-bold hover:text-slate-800 bg-slate-50 hover:bg-slate-100 rounded-2xl transition-all border border-slate-200">
+                                                        Return to Dashboard
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="text-rose-600 font-bold bg-[#fff1f2] px-8 py-5 rounded-2xl border border-[#fecdd3] flex flex-col items-center gap-3 shadow-sm">
+                                                    <XCircle className="w-8 h-8" />
+                                                    <p>Background Job Failed. Check Server Logs.</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
