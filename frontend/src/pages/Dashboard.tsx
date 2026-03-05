@@ -4,6 +4,7 @@ import axios from "axios";
 import TemplateUpload from "../components/TemplateUpload";
 import EditorCanvas from "../components/EditorCanvas";
 import { useNavigate } from "react-router-dom";
+import { Logo } from "../components/Logo";
 
 export default function Dashboard() {
     const navigate = useNavigate();
@@ -60,7 +61,7 @@ export default function Dashboard() {
             {/* Sidebar */}
             <aside className="w-64 bg-white border-r border-slate-200 flex flex-col z-20 shadow-sm relative">
                 <div className="p-6 border-b border-slate-100 pb-5">
-                    <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Credify<span className="text-indigo-600">.</span></h2>
+                    <Logo className="h-7 w-auto text-slate-800" />
                 </div>
                 <nav className="flex-1 p-4 space-y-1">
                     <a href="#" className="flex items-center gap-3 px-3 py-2.5 bg-indigo-50 text-indigo-700 rounded-lg font-medium">

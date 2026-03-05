@@ -62,8 +62,13 @@ def generate_preview(template_bytes: bytes, font_bytes: bytes, text: str,
         qr_img = qr.make_image(fill_color=text_color, back_color="transparent").convert("RGBA")
         qr_img = qr_img.resize((bbox_width, bbox_height), Image.Resampling.LANCZOS)
         
+        # QR Codes: bbox_x and bbox_y represent the CENTER of the bounding box.
+        # PIL paste requires the top-left coordinate.
+        top_left_x = int(bbox_x - (bbox_width / 2))
+        top_left_y = int(bbox_y - (bbox_height / 2))
+        
         # Paste the QR matrix onto the main certificate canvas using itself as a transparency mask
-        img.paste(qr_img, (bbox_x, bbox_y), mask=qr_img)
+        img.paste(qr_img, (top_left_x, top_left_y), mask=qr_img)
     else:
         # Standard TrueType text rendering logic
         draw = ImageDraw.Draw(img)
@@ -72,11 +77,9 @@ def generate_preview(template_bytes: bytes, font_bytes: bytes, text: str,
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
         
-        center_x = bbox_x + (bbox_width / 2)
-        center_y = bbox_y + (bbox_height / 2)
-        
-        adjusted_x = center_x - (text_width / 2)
-        adjusted_y = center_y - (text_height / 2)
+        # Determine top-left coordinate based on frontend's center origin
+        adjusted_x = bbox_x - (text_width / 2)
+        adjusted_y = bbox_y - (text_height / 2)
         
         draw.text((adjusted_x, adjusted_y), text, fill=text_color, font=font)
     

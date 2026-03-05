@@ -13,7 +13,7 @@ from collections import defaultdict
 from database import get_db
 from models import FontAsset, User
 from storage import upload_file_to_s3
-from routers.auth import get_current_user
+from auth import get_current_user
 
 router = APIRouter(prefix="/api/fonts", tags=["fonts"])
 

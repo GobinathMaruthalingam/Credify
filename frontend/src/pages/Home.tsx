@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, Zap, ShieldCheck, Mail, Image as ImageIcon } from "lucide-react";
+import { Logo } from "../components/Logo";
 
 export default function Home() {
     return (
@@ -8,11 +9,8 @@ export default function Home() {
             {/* Navigation Bar */}
             <nav className="fixed top-0 w-full z-50 bg-[#0B0F19]/80 backdrop-blur-md border-b border-white/10 transition-all duration-300">
                 <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                            <span className="font-bold text-white text-lg">C</span>
-                        </div>
-                        <span className="text-xl font-bold tracking-tight text-white">Credify</span>
+                    <div className="flex items-center">
+                        <Logo className="h-8 w-auto text-white" />
                     </div>
                     <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-400">
                         <a href="#features" className="hover:text-white transition-colors">Features</a>
@@ -159,12 +157,7 @@ export default function Home() {
 
             {/* Footer */}
             <footer className="border-t border-white/10 bg-[#0B0F19] py-12 px-6 text-center">
-                <div className="flex justify-center items-center gap-2 mb-6 opacity-80">
-                    <div className="w-6 h-6 rounded bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center">
-                        <span className="font-bold text-white text-[10px]">C</span>
-                    </div>
-                    <span className="text-lg font-bold text-white">Credify</span>
-                </div>
+                <Logo className="h-6 w-auto text-white mb-6 mx-auto opacity-80" />
                 <p className="text-slate-500 text-sm">© {new Date().getFullYear()} Credify Inc. All rights reserved.</p>
             </footer>
         </div>

@@ -216,11 +216,11 @@ import base64
 import datetime
 from models import Certificate
 
-@router.get("/track/{certificate_id}.png")
+@router.get("/track/{certificate_id}.svg")
 async def track_email_open(certificate_id: str, db: AsyncSession = Depends(get_db)):
     """
-    Transparent 1x1 pixel tracking endpoint injected into the outbound SMTP emails.
-    Registers 'Opened' status and timestamp when the recipient's mail client natively auto-loads the image.
+    Visible brand logo tracking endpoint injected into the outbound SMTP emails.
+    Registers 'Opened' status and timestamp when the recipient's mail client natively auto-loads the logo.
     """
     result = await db.execute(select(Certificate).where(Certificate.id == certificate_id))
     cert = result.scalars().first()
@@ -230,7 +230,9 @@ async def track_email_open(certificate_id: str, db: AsyncSession = Depends(get_d
         cert.opened_at = datetime.datetime.utcnow()
         await db.commit()
         
-    # 1x1 transparent PNG payload
-    pixel_data = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=")
-    return Response(content=pixel_data, media_type="image/png")
+    # Credify brand logo SVG payload
+    svg_data = '''<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40" viewBox="0 0 120 40">
+  <text x="5" y="28" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="24" font-weight="900" fill="#1e293b" letter-spacing="-0.5">Credify<tspan fill="#4f46e5">.</tspan></text>
+</svg>'''
+    return Response(content=svg_data, media_type="image/svg+xml")
 

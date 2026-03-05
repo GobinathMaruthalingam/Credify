@@ -1,5 +1,6 @@
 import { Users, CreditCard, Activity, ArrowUpRight, CheckCircle2, MoreVertical, Search, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { Logo } from '../components/Logo';
 
 export default function Admin() {
     // Mock data for the MVP admin dashboard
@@ -24,11 +25,9 @@ export default function Admin() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between h-16">
                         <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                                <ShieldCheckIcon className="w-5 h-5 text-white" />
-                            </div>
-                            <span className="text-xl font-bold bg-gradient-to-r from-indigo-700 to-indigo-500 bg-clip-text text-transparent">
-                                Credify Admin
+                            <Logo className="h-6 w-auto text-slate-800" />
+                            <span className="text-[10px] font-black tracking-widest bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full ml-1">
+                                ADMIN
                             </span>
                         </div>
                         <div className="flex items-center gap-4">
@@ -147,19 +146,5 @@ export default function Admin() {
                 </div>
             </main>
         </div>
-    );
-}
-
-// Inline fallback icon to prevent import errors if not strictly in lucide set
-function ShieldCheckIcon(props: React.SVGProps<SVGSVGElement>) {
-    return (
-        <svg
-            {...props}
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-        >
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
-            <path d="m9 12 2 2 4-4" />
-        </svg>
     );
 }

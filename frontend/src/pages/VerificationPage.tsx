@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { BadgeCheck, XCircle, Loader2, Calendar, User, FileImage, ShieldCheck } from 'lucide-react';
+import { Logo } from '../components/Logo';
 
 interface Certificate {
     id: string;
@@ -54,9 +55,12 @@ export default function VerificationPage() {
                     <h1 className="text-2xl font-bold tracking-tight text-slate-900">Verification Failed</h1>
                     <p className="text-slate-600 leading-relaxed">{error}</p>
                     <div className="pt-6">
-                        <Link to="/" className="text-indigo-600 font-semibold hover:text-indigo-700 transition-colors">
-                            Return to Credify Home
+                        <Link to="/" className="inline-flex items-center gap-2 text-indigo-600 font-semibold hover:text-indigo-700 transition-colors">
+                            Return to Home
                         </Link>
+                        <div>
+                            <Logo className="h-10 w-auto text-slate-800" />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -139,8 +143,8 @@ export default function VerificationPage() {
                 </div>
 
                 <div className="text-center pt-8">
-                    <p className="text-slate-400 text-sm font-medium">
-                        Secured by <span className="text-indigo-500 font-bold tracking-tight">Credify.</span>
+                    <p className="text-slate-400 text-sm font-medium flex items-center justify-center gap-1.5">
+                        Secured by <Logo className="h-5 w-auto text-slate-800" />
                     </p>
                 </div>
             </div>
