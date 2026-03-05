@@ -1,0 +1,12 @@
+{
+    "version": 2,
+    "buildCommand": null,
+    "outputDirectory": "./",
+    "cleanUrls": true,
+    "rewrites": [
+        {
+            "source": "/",
+            "destination": "/coming_soon.html"
+        }
+    ]
+}
