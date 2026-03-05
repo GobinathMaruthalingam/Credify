@@ -13,3 +13,6 @@ generated/
 *.pdf
 template.png
 participants.csv
+
+#node_modules for Vercel Speed Insights
+node_modules/
