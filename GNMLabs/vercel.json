@@ -3,18 +3,25 @@
     "buildCommand": null,
     "outputDirectory": "./",
     "cleanUrls": true,
-    "rewrites": [
+    "routes": [
         {
-            "source": "/",
-            "destination": "/coming_soon.html"
+            "src": "/",
+            "dest": "/coming_soon.html"
         },
         {
-            "source": "/verify/(.*)",
-            "destination": "/index.html"
+            "src": "/verify/(.*)",
+            "dest": "https://credify.gnmlabs.com/verify/$1"
         },
         {
-            "source": "/(.*)",
-            "destination": "/index.html"
+            "src": "/dashboard(.*)",
+            "dest": "https://credify.gnmlabs.com/dashboard"
+        },
+        {
+            "handle": "filesystem"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "/index.html"
         }
     ]
 }

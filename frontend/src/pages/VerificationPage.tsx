@@ -145,7 +145,7 @@ export default function VerificationPage() {
 
                 <div className="text-center pt-8">
                     <p className="text-slate-400 text-sm font-medium flex items-center justify-center gap-1.5">
-                        Secured by <Logo className="h-5 w-auto text-slate-800" />
+                        Secured by <Logo className="h-8 w-auto text-slate-800" />
                     </p>
                 </div>
             </div>

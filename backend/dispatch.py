@@ -184,24 +184,23 @@ async def process_dispatch_job(job_id: int, project_id: int, csv_data: list[dict
                 </div>
                 '''
                 
-                final_html = email_body.replace("{name}", recipient_name)
+                final_html = email_body
+                final_subject = email_subject
+
+                # Replace all CSV columns as {tags} in body and subject
+                for key, val in row.items():
+                    if not key:
+                        continue
+                    tag = f"{{{key.strip()}}}"
+                    final_html = final_html.replace(tag, str(val))
+                    final_subject = final_subject.replace(tag, str(val))
+
+                # Also support general {project_name} replacement
                 final_html = final_html.replace("{project_name}", project.name)
-                final_html = final_html.replace("{credential_button}", button_html)
-                
-                backend_api_url = os.getenv("BACKEND_URL", "http://localhost:8000").rstrip('/')
-                tracking_logo = f'''
-                <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                    <p style="color: #64748b; font-size: 12px; margin-bottom: 8px; font-weight: 500;">Powered & Verified by</p>
-                    <img src="{backend_api_url}/api/projects/track/{cert.id}.svg" height="28" alt="Credify" style="display:inline-block; outline:none; text-decoration:none; border:none;" />
-                </div>
-                '''
-                if "</body>" in final_html:
-                    final_html = final_html.replace("</body>", f"{tracking_logo}</body>")
-                else:
-                    final_html += tracking_logo
-                
-                final_subject = email_subject.replace("{name}", recipient_name)
                 final_subject = final_subject.replace("{project_name}", project.name)
+
+                # Inject the credential button
+                final_html = final_html.replace("{credential_button}", button_html)
 
                 await asyncio.to_thread(send_smtp_email_sync, recipient_email, final_subject, final_html)
                 

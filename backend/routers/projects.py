@@ -2,13 +2,15 @@ import io
 import os
 import aiohttp
 import smtplib
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
+import base64
+import datetime
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from database import get_db
-from models import User, Project, DispatchJob
+from models import User, Project, DispatchJob, Certificate
 from auth import get_current_user
 from schemas import ProjectCreate, ProjectResponse, PreviewRequest, ProjectMappingUpdate, DispatchJobResponse
 from storage import upload_file_to_s3
@@ -235,28 +237,37 @@ async def get_user_kpis(current_user: User = Depends(get_current_user), db: Asyn
         "hit_rate_percentage": round(hit_rate, 1)
     }
 
-from fastapi import Response
-import base64
-import datetime
-from models import Certificate
+# Minimal 1x1 transparent PNG pixel base64
+TRANSPARENT_PNG_PIXEL = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+)
 
-@router.get("/track/{certificate_id}.svg")
+@router.get("/track/{certificate_id}.png")
 async def track_email_open(certificate_id: str, db: AsyncSession = Depends(get_db)):
     """
-    Visible brand logo tracking endpoint injected into the outbound SMTP emails.
-    Registers 'Opened' status and timestamp when the recipient's mail client natively auto-loads the logo.
+    Transparent 1x1 PNG tracking pixel.
+    Registers 'Opened' status when the mail client loads the image.
+    Using PNG instead of SVG for better compatibility with Gmail/Outlook.
     """
-    result = await db.execute(select(Certificate).where(Certificate.id == certificate_id))
-    cert = result.scalars().first()
-    
-    if cert and cert.status == "Sent":
-        cert.status = "Opened"
-        cert.opened_at = datetime.datetime.utcnow()
-        await db.commit()
+    try:
+        result = await db.execute(select(Certificate).where(Certificate.id == certificate_id))
+        cert = result.scalars().first()
         
-    # Credify brand logo SVG payload
-    svg_data = '''<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40" viewBox="0 0 120 40">
-  <text x="5" y="28" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="24" font-weight="900" fill="#1e293b" letter-spacing="-0.5">Credify<tspan fill="#4f46e5">.</tspan></text>
-</svg>'''
-    return Response(content=svg_data, media_type="image/svg+xml")
+        if cert and cert.status == "Sent":
+            cert.status = "Opened"
+            cert.opened_at = datetime.datetime.utcnow()
+            await db.commit()
+    except Exception as e:
+        logger.error(f"Tracking failed for {certificate_id}: {e}")
+        # We still return the pixel even if DB update fails
+        
+    return Response(
+        content=TRANSPARENT_PNG_PIXEL, 
+        media_type="image/png",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
 
