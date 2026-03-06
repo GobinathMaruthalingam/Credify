@@ -31,9 +31,14 @@ default_origins = "https://credify.gnmlabs.com,https://www.credify.gnmlabs.com,h
 frontend_urls_raw = os.getenv("FRONTEND_URL", default_origins)
 origins = [url.strip().rstrip("/") for url in frontend_urls_raw.split(",") if url.strip()]
 
-# Force include root and www variants of production domain just in case
-production_domains = ["https://credify.gnmlabs.com", "https://www.credify.gnmlabs.com"]
-for d in production_domains:
+# Force include root, www, and LOCALHOST variants always to support hybrid mode
+essential_domains = [
+    "https://credify.gnmlabs.com", 
+    "https://www.credify.gnmlabs.com",
+    "http://localhost:5173",
+    "http://localhost:3000"
+]
+for d in essential_domains:
     if d not in origins:
         origins.append(d)
 

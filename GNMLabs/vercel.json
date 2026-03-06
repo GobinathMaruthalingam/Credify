@@ -7,6 +7,14 @@
         {
             "source": "/",
             "destination": "/coming_soon.html"
+        },
+        {
+            "source": "/verify/(.*)",
+            "destination": "/index.html"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/index.html"
         }
     ]
 }

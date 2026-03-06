@@ -197,8 +197,10 @@ export default function EditorCanvas({ templateUrl, projectId, initialMappingDat
             }]);
             setSelectedId(newId);
             setMode('select');
-        } catch (err) {
+        } catch (err: any) {
             console.error("Failed to upload logo", err);
+            const errorDetail = err.response?.data?.detail || err.message;
+            alert(`Logo upload failed: ${errorDetail}`);
         } finally {
             setIsUploadingLogo(false);
             if (fileInputRef.current) fileInputRef.current.value = '';

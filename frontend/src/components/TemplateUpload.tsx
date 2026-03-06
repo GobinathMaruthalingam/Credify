@@ -29,9 +29,10 @@ export default function TemplateUpload({ onUpload }: TemplateUploadProps) {
 
                 const baseName = file.name.split('.').slice(0, -1).join('.') || file.name;
                 onUpload(res.data.url, baseName);
-            } catch (err) {
+            } catch (err: any) {
                 console.error("Upload failed", err);
-                alert("Failed to upload template to the cloud storage bucket.");
+                const errorDetail = err.response?.data?.detail || err.message;
+                alert(`Upload failed: ${errorDetail}`);
             } finally {
                 setIsUploading(false);
             }
