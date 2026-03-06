@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { BadgeCheck, XCircle, Loader2, Calendar, User, FileImage, ShieldCheck } from 'lucide-react';
 import { Logo } from '../components/Logo';
+import { API_BASE_URL } from '../lib/api';
 
 interface Certificate {
     id: string;
@@ -23,7 +24,7 @@ export default function VerificationPage() {
     useEffect(() => {
         const fetchCertificate = async () => {
             try {
-                const res = await axios.get(`http://localhost:8000/api/verify/${id}`);
+                const res = await axios.get(`${API_BASE_URL}/api/verify/${id}`);
                 setCert(res.data);
             } catch (err: any) {
                 setError(err.response?.data?.detail || "Unable to verify this credential. It may be invalid or expired.");

@@ -5,6 +5,7 @@ import TemplateUpload from "../components/TemplateUpload";
 import EditorCanvas from "../components/EditorCanvas";
 import { useNavigate } from "react-router-dom";
 import { Logo } from "../components/Logo";
+import { API_BASE_URL } from "../lib/api";
 
 export default function Dashboard() {
     const navigate = useNavigate();
@@ -21,9 +22,9 @@ export default function Dashboard() {
             try {
                 const token = localStorage.getItem("token") || "mock_token";
                 const [projRes, kpiRes, jobsRes] = await Promise.all([
-                    axios.get("http://localhost:8000/api/projects/", { headers: { Authorization: `Bearer ${token}` } }),
-                    axios.get("http://localhost:8000/api/projects/kpi", { headers: { Authorization: `Bearer ${token}` } }),
-                    axios.get("http://localhost:8000/api/projects/jobs", { headers: { Authorization: `Bearer ${token}` } })
+                    axios.get(`${API_BASE_URL}/api/projects/`, { headers: { Authorization: `Bearer ${token}` } }),
+                    axios.get(`${API_BASE_URL}/api/projects/kpi`, { headers: { Authorization: `Bearer ${token}` } }),
+                    axios.get(`${API_BASE_URL}/api/projects/jobs`, { headers: { Authorization: `Bearer ${token}` } })
                 ]);
 
                 setProjectsList(projRes.data);
@@ -41,7 +42,7 @@ export default function Dashboard() {
         try {
             const token = localStorage.getItem("token") || "mock_token"; // Use actual token from Auth context
             const res = await axios.post(
-                "http://localhost:8000/api/projects/",
+                `${API_BASE_URL}/api/projects/`,
                 { name: fileName, template_url: url },
                 { headers: { Authorization: `Bearer ${token}` } }
             );

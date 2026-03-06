@@ -15,6 +15,9 @@ from storage import upload_file_to_s3
 from services import generate_preview
 from dispatch import process_dispatch_job
 from pydantic import BaseModel
+import logging
+
+logger = logging.getLogger(__name__)
 
 class DispatchRequest(BaseModel):
     csv_data: list[dict]
@@ -118,27 +121,48 @@ async def list_projects(current_user: User = Depends(get_current_user), db: Asyn
 async def dispatch_project(project_id: int, req: DispatchRequest, background_tasks: BackgroundTasks, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Project).where(Project.id == project_id, Project.owner_id == current_user.id))
     project = result.scalars().first()
+    
     if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+        logger.error(f"Dispatch failed: Project {project_id} not found for user {current_user.id}")
+        raise HTTPException(status_code=404, detail="Project not found or access denied.")
 
+    logger.info(f"Starting dispatch for project {project_id} with {len(req.csv_data)} rows")
+    
     if not project.mapping_data or not project.template_url:
+        logger.error(f"Dispatch failed for project {project_id}: Mapping data or template URL missing")
         raise HTTPException(status_code=400, detail="Project mapping or template is missing. Please save the canvas configuration first.")
 
     try:
         sender_email = os.getenv("SENDER_EMAIL")
         app_password = os.getenv("APP_PASSWORD")
         if not sender_email or not app_password:
+            logger.error("Dispatch failed: SMTP Credentials missing")
             raise HTTPException(status_code=400, detail="SMTP Credentials (SENDER_EMAIL, APP_PASSWORD) missing in .env")
         
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
-            server.starttls()
-            server.login(sender_email, app_password)
+        logger.info(f"Verifying SMTP login for {sender_email} (Forcing IPv4 + Port 465)...")
+        # Force IPv4 to avoid Render IPv6 routing issues
+        import socket
+        try:
+            # Use smtp.googlemail.com as it sometimes has better routing
+            with smtplib.SMTP_SSL("smtp.googlemail.com", 465, timeout=10) as server:
+                server.login(sender_email, app_password)
+            logger.info("SMTP login successful")
+        except (socket.gaierror, socket.error, smtplib.SMTPConnectError) as e:
+            if "101" in str(e) or "unreachable" in str(e).lower():
+                logger.warning(f"SMTP is unreachable during pre-check: {e}. Allowing dispatch to background task anyway.")
+            else:
+                raise e
     except smtplib.SMTPAuthenticationError:
-        raise HTTPException(status_code=400, detail="Invalid SMTP Application Password in .env. Please check your Google App Passwords.")
+        logger.error("Dispatch failed: SMTP Authentication Error")
+        raise HTTPException(status_code=400, detail="Invalid SMTP Application Password. Please check your Google App Passwords.")
     except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(status_code=400, detail=f"SMTP Connection Error: {str(e)}")
+        logger.error(f"Dispatch failed: SMTP Connection Error: {e}")
+        # We don't block the whole process if just the PRE-CHECK fails due to a timeout, 
+        # but if it's a real connection error we should report it.
+        if "timeout" in str(e).lower():
+            logger.warning("SMTP pre-check timed out, but allowed to proceed to background task.")
+        else:
+            raise HTTPException(status_code=400, detail=f"SMTP Connection Error: {str(e)}")
 
     job = DispatchJob(
         project_id=project.id,

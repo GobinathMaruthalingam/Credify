@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { FileImage, UploadCloud, Loader2 } from 'lucide-react';
 import axios from 'axios';
+import { API_BASE_URL } from '../lib/api';
 
 interface TemplateUploadProps {
     onUpload: (fileUrl: string, fileName: string) => void;
@@ -19,7 +20,7 @@ export default function TemplateUpload({ onUpload }: TemplateUploadProps) {
                 const formData = new FormData();
                 formData.append("file", file);
 
-                const res = await axios.post("http://localhost:8000/api/projects/upload", formData, {
+                const res = await axios.post(`${API_BASE_URL}/api/projects/upload`, formData, {
                     headers: {
                         "Content-Type": "multipart/form-data",
                         Authorization: `Bearer ${token}`

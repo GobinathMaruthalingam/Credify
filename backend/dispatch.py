@@ -41,8 +41,8 @@ def send_smtp_email_sync(recipient_email: str, subject: str, html_body: str):
     msg.attach(MIMEText(html_body, "html"))
 
     try:
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-            server.starttls()
+        # Use SMTP_SSL on port 465 with alternative hostname
+        with smtplib.SMTP_SSL("smtp.googlemail.com", 465) as server:
             server.login(SENDER_EMAIL, APP_PASSWORD)
             server.sendmail(SENDER_EMAIL, recipient_email, msg.as_string())
     except Exception as e:

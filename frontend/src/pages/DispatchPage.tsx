@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../lib/api';
 import { Loader2, CheckCircle2, XCircle, Send, UploadCloud, FileSpreadsheet, Edit3, ArrowLeft } from 'lucide-react';
 import Papa from 'papaparse';
 import ReactQuill, { Quill } from 'react-quill-new';
@@ -114,7 +115,7 @@ export default function DispatchPage() {
             try {
                 const token = localStorage.getItem("token") || "mock_token";
                 // Optionally fetch project details if we need project name
-                const res = await axios.get(`http://localhost:8000/api/projects/`, {
+                const res = await axios.get(`${API_BASE_URL}/api/projects/`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 const proj = res.data.find((p: any) => p.id === projectId);
@@ -132,7 +133,7 @@ export default function DispatchPage() {
 
         const interval = setInterval(async () => {
             try {
-                const res = await axios.get(`http://localhost:8000/api/projects/jobs/${jobId}`, {
+                const res = await axios.get(`${API_BASE_URL}/api/projects/jobs/${jobId}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 const job = res.data;
@@ -188,7 +189,7 @@ export default function DispatchPage() {
         setStatus('starting');
         try {
             const token = localStorage.getItem("token") || "mock_token";
-            const res = await axios.post(`http://localhost:8000/api/projects/${projectId}/dispatch`, {
+            const res = await axios.post(`${API_BASE_URL}/api/projects/${projectId}/dispatch`, {
                 csv_data: csvData,
                 email_subject: emailSubject,
                 email_body: emailBody
@@ -200,7 +201,15 @@ export default function DispatchPage() {
         } catch (error: any) {
             console.error("Dispatch failed:", error);
             setStatus('failed');
-            alert(error.response?.data?.detail || "Failed to start dispatch. Ensure your layout mapping is saved.");
+            // Try to extract the most descriptive error possible
+            const errorDetail = error.response?.data?.detail;
+            const axiosMessage = error.message;
+            const fallbackMsg = "Connection failed. Please check if the backend is awake (Render free tier can sleep) and your internet is stable.";
+
+            let finalMsg = errorDetail || axiosMessage || fallbackMsg;
+            if (finalMsg.includes("502")) finalMsg = "Server is currently rebooting or overloaded (502 Gateway Error). Please wait 1 minute.";
+
+            alert(finalMsg);
             setStep('compose');
         }
     };

@@ -5,6 +5,7 @@ import useImage from 'use-image';
 import { Type, MousePointer2, Undo2, Redo2, RotateCw, QrCode, Image as ImageIcon, Send } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { API_BASE_URL } from '../lib/api';
 
 interface EditorCanvasProps {
     templateUrl: string;
@@ -162,7 +163,7 @@ export default function EditorCanvas({ templateUrl, projectId, initialMappingDat
     // Fetch the shared font library on mount
     useEffect(() => {
         const token = localStorage.getItem("token") || "mock_token";
-        axios.get("http://localhost:8000/api/fonts", {
+        axios.get(`${API_BASE_URL}/api/fonts`, {
             headers: { Authorization: `Bearer ${token}` }
         }).then(res => setFontLibrary(res.data)).catch(() => { });
     }, []);
@@ -175,7 +176,7 @@ export default function EditorCanvas({ templateUrl, projectId, initialMappingDat
             const formData = new FormData();
             formData.append("file", file);
             const token = localStorage.getItem("token") || "mock_token";
-            const res = await axios.post("http://localhost:8000/api/projects/upload", formData, {
+            const res = await axios.post(`${API_BASE_URL}/api/projects/upload`, formData, {
                 headers: { "Content-Type": "multipart/form-data", Authorization: `Bearer ${token}` }
             });
             const url = res.data.url;
@@ -216,7 +217,7 @@ export default function EditorCanvas({ templateUrl, projectId, initialMappingDat
             const formData = new FormData();
             formData.append("file", file);
             const token = localStorage.getItem("token") || "mock_token";
-            const res = await axios.post("http://localhost:8000/api/fonts/upload", formData, {
+            const res = await axios.post(`${API_BASE_URL}/api/fonts/upload`, formData, {
                 headers: { "Content-Type": "multipart/form-data", Authorization: `Bearer ${token}` }
             });
             const { family, variant, fontName, url } = res.data;
@@ -713,7 +714,7 @@ export default function EditorCanvas({ templateUrl, projectId, initialMappingDat
                                 setIsSaving(true);
                                 try {
                                     const token = localStorage.getItem("token") || "mock_token";
-                                    await axios.put(`http://localhost:8000/api/projects/${projectId}/mapping`, {
+                                    await axios.put(`${API_BASE_URL}/api/projects/${projectId}/mapping`, {
                                         mapping_data: placeholders,
                                         name: newName
                                     }, {

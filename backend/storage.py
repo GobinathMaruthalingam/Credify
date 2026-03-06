@@ -30,7 +30,8 @@ async def upload_file_to_s3(file: UploadFile, folder: str = "uploads") -> str:
         with open(local_path, "wb") as f:
             f.write(contents)
         await file.seek(0)
-        return f"http://localhost:8000/static/{folder}/{unique_filename.split('/')[-1]}"
+        backend_url = os.getenv("BACKEND_URL", "http://localhost:8000").rstrip("/")
+        return f"{backend_url}/static/{folder}/{unique_filename.split('/')[-1]}"
     
     try:
         contents = await file.read()
