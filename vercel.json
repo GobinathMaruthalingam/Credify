@@ -1,32 +1,15 @@
 {
-    "version": 2,
-    "framework": "vite",
-    "buildCommand": "npm run build",
-    "outputDirectory": "frontend/dist",
-    "cleanUrls": true,
-    "routes": [
-        {
-            "src": "/verify/(.*)",
-            "dest": "/index.html"
-        },
-        {
-            "src": "/dashboard(.*)",
-            "dest": "/index.html"
-        },
-        {
-            "src": "/login",
-            "dest": "/index.html"
-        },
-        {
-            "src": "/signup",
-            "dest": "/index.html"
-        },
-        {
-            "handle": "filesystem"
-        },
-        {
-            "src": "/(.*)",
-            "dest": "/index.html"
-        }
-    ]
+  "version": 2,
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "frontend/dist",
+  "routes": [
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
 }

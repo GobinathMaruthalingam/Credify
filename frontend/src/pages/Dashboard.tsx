@@ -11,7 +11,6 @@ export default function Dashboard() {
     const navigate = useNavigate();
     const [templateUrl, setTemplateUrl] = useState<string | null>(null);
     const [projectId, setProjectId] = useState<number | null>(null);
-    const [isCreatingProject, setIsCreatingProject] = useState(false);
     const [projectsList, setProjectsList] = useState<any[]>([]);
     const [initialMappingData, setInitialMappingData] = useState<any[] | null>(null);
     const [kpiData, setKpiData] = useState<any>(null);
@@ -37,24 +36,11 @@ export default function Dashboard() {
         fetchProjects();
     }, []);
 
-    const handleUploadComplete = async (url: string, fileName: string = "Untitled Certificate") => {
-        setIsCreatingProject(true);
-        try {
-            const token = localStorage.getItem("token") || "mock_token"; // Use actual token from Auth context
-            const res = await axios.post(
-                `${API_BASE_URL}/api/projects/`,
-                { name: fileName, template_url: url },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-            setTemplateUrl(url);
-            setProjectId(res.data.id);
-        } catch (err) {
-            console.error("Failed to create project record", err);
-            // Fallback for UI if DB creation fails temporarily 
-            setTemplateUrl(url);
-        } finally {
-            setIsCreatingProject(false);
-        }
+    const handleUploadComplete = async (url: string) => {
+        // Just set the template URL to enter "Editor Mode" without creating a DB record yet
+        setTemplateUrl(url);
+        setProjectId(null); // Explicitly null signals a fresh, unsaved project
+        setInitialMappingData([]);
     };
 
     return (
@@ -97,12 +83,7 @@ export default function Dashboard() {
                 </header>
 
                 <div className="p-8 max-w-[1200px] w-full mx-auto space-y-6 flex-1">
-                    {isCreatingProject ? (
-                        <div className="flex flex-col items-center justify-center h-full animate-pulse">
-                            <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                            <p className="mt-4 text-slate-500 font-medium">Initializing Workspace...</p>
-                        </div>
-                    ) : !templateUrl ? (
+                    {!templateUrl ? (
                         <div className="max-w-5xl mx-auto mt-4 animate-in fade-in zoom-in-95 duration-500 space-y-8 pb-12">
 
                             {/* Dashboard KPIs */}
@@ -252,6 +233,7 @@ export default function Dashboard() {
                                 templateUrl={templateUrl!}
                                 projectId={projectId}
                                 initialMappingData={initialMappingData}
+                                onSave={(newId) => setProjectId(newId)}
                             />
                         </div>
                     )}

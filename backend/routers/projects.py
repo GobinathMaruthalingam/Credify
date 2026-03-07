@@ -12,10 +12,10 @@ from sqlalchemy.future import select
 from database import get_db
 from models import User, Project, DispatchJob, Certificate
 from auth import get_current_user
-from schemas import ProjectCreate, ProjectResponse, PreviewRequest, ProjectMappingUpdate, DispatchJobResponse
+from schemas import ProjectCreate, ProjectResponse, PreviewRequest, ProjectMappingUpdate, DispatchJobResponse, TestEmailRequest
 from storage import upload_file_to_s3
 from services import generate_preview
-from dispatch import process_dispatch_job
+from dispatch import process_dispatch_job, send_test_email
 from pydantic import BaseModel
 import logging
 
@@ -177,6 +177,30 @@ async def dispatch_project(project_id: int, req: DispatchRequest, background_tas
     background_tasks.add_task(process_dispatch_job, job.id, project.id, req.csv_data, req.email_subject, req.email_body)
     return job
 
+@router.post("/{project_id}/test-email")
+async def test_email(project_id: int, req: TestEmailRequest, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Project).where(Project.id == project_id, Project.owner_id == current_user.id))
+    project = result.scalars().first()
+    
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if len(req.emails) > 5:
+        raise HTTPException(status_code=400, detail="Maximum 5 test emails allowed at once.")
+
+    try:
+        await send_test_email(
+            emails=req.emails,
+            subject=req.subject,
+            body=req.body,
+            project_name=project.name,
+            sample_data=req.sample_data
+        )
+        return {"status": "success", "message": f"Test email sent to {len(req.emails)} recipients."}
+    except Exception as e:
+        logger.error(f"Test email failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/jobs/{job_id}", response_model=DispatchJobResponse)
 async def get_dispatch_job(job_id: int, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(DispatchJob).join(Project).where(
@@ -245,9 +269,9 @@ TRANSPARENT_PNG_PIXEL = base64.b64decode(
 @router.get("/track/{certificate_id}.png")
 async def track_email_open(certificate_id: str, db: AsyncSession = Depends(get_db)):
     """
-    Transparent 1x1 PNG tracking pixel.
-    Registers 'Opened' status when the mail client loads the image.
-    Using PNG instead of SVG for better compatibility with Gmail/Outlook.
+    Tracking endpoint using the Credify Logo.
+    Registers 'Opened' status when the mail client loads the logo image.
+    Redirects to the official Google Drive logo URL.
     """
     try:
         result = await db.execute(select(Certificate).where(Certificate.id == certificate_id))
@@ -259,7 +283,10 @@ async def track_email_open(certificate_id: str, db: AsyncSession = Depends(get_d
             await db.commit()
     except Exception as e:
         logger.error(f"Tracking failed for {certificate_id}: {e}")
-        # We still return the pixel even if DB update fails
+    
+    # Redirect to the actual logo image to act as the "tracking pixel"
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse("https://rrjogdkgrszahxgucbfn.supabase.co/storage/v1/object/public/credify-assets/brand/official-logo.png")
         
     return Response(
         content=TRANSPARENT_PNG_PIXEL, 

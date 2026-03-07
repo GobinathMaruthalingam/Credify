@@ -202,6 +202,11 @@ async def process_dispatch_job(job_id: int, project_id: int, csv_data: list[dict
                 # Inject the credential button
                 final_html = final_html.replace("{credential_button}", button_html)
 
+                # Inject Tracking Logo at the very bottom
+                backend_base_url = os.getenv("BACKEND_URL", "http://localhost:8000").rstrip('/')
+                tracking_img = f'<br/><div style="text-align:center; margin-top: 20px;"><img src="{backend_base_url}/api/projects/track/{cert.id}.png" alt="Credify" style="height:32px; width:auto; border:0;"></div>'
+                final_html += tracking_img
+
                 await asyncio.to_thread(send_smtp_email_sync, recipient_email, final_subject, final_html)
                 
                 job.successful_deliveries += 1
@@ -217,3 +222,43 @@ async def process_dispatch_job(job_id: int, project_id: int, csv_data: list[dict
         job.status = "completed"
         job.completed_at = datetime.datetime.utcnow()
         await db.commit()
+
+async def send_test_email(emails: list[str], subject: str, body: str, project_name: str, sample_data: dict = None):
+    """
+    Sends a test email to a list of addresses with sample tag replacement.
+    """
+    frontend_bg_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip('/')
+    button_html = f'''
+    <div style="margin: 30px 0;">
+        <a href="{frontend_bg_url}/verify/sample-test-id" 
+           style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+           View Sample Credential
+        </a>
+    </div>
+    '''
+    
+    final_body = body
+    final_subject = subject
+    
+    # Use provided sample data or find potential tags in body to provide fallbacks
+    data = sample_data or {}
+    
+    # Standard replacements
+    data["project_name"] = project_name
+    
+    # Replace tags in body and subject
+    # We regex find all {tags} and replace them with data or "Sample [Tag]"
+    import re
+    all_tags = set(re.findall(r"\{([A-Za-z0-9_ -]+)\}", final_body + final_subject))
+    
+    for tag in all_tags:
+        if tag == "credential_button":
+            continue
+        val = data.get(tag, f"Sample {tag}")
+        final_body = final_body.replace(f"{{{tag}}}", str(val))
+        final_subject = final_subject.replace(f"{{{tag}}}", str(val))
+        
+    final_body = final_body.replace("{credential_button}", button_html)
+    
+    for email in emails:
+        await asyncio.to_thread(send_smtp_email_sync, email, final_subject, final_body)

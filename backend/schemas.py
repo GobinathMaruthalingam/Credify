@@ -33,6 +33,12 @@ class PreviewRequest(BaseModel):
     is_qrcode: bool = False
     qr_url: Optional[str] = None
 
+class TestEmailRequest(BaseModel):
+    emails: List[str]
+    subject: str
+    body: str
+    sample_data: Optional[dict] = None
+
 class CertificateResponse(BaseModel):
     id: str
     project_id: int

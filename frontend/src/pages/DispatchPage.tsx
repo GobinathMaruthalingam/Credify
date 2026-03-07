@@ -99,6 +99,8 @@ export default function DispatchPage() {
     const [previewHtml, setPreviewHtml] = useState(false);
     const [showTestModal, setShowTestModal] = useState(false);
     const [testEmails, setTestEmails] = useState("");
+    const [isTestingEmail, setIsTestingEmail] = useState(false);
+
     // Dispatching State
     const [jobId, setJobId] = useState<number | null>(null);
     const [status, setStatus] = useState<'idle' | 'starting' | 'processing' | 'completed' | 'failed'>('idle');
@@ -108,6 +110,38 @@ export default function DispatchPage() {
         success: 0,
         failed: 0
     });
+
+    const handleSendTestEmail = async () => {
+        if (!testEmails.trim()) return alert("Please enter at least one email.");
+
+        const emailList = testEmails.split(',').map(e => e.trim()).filter(e => e !== "");
+        if (emailList.length > 5) return alert("Maximum 5 test emails allowed.");
+
+        setIsTestingEmail(true);
+        try {
+            const token = localStorage.getItem("token") || "mock_token";
+            // Use the first row of CSV as sample data if available
+            const sampleData = csvData.length > 0 ? csvData[0] : {};
+
+            await axios.post(`${API_BASE_URL}/api/projects/${projectId}/test-email`, {
+                emails: emailList,
+                subject: emailSubject,
+                body: emailBody,
+                sample_data: sampleData
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            alert("Test email(s) sent successfully!");
+            setShowTestModal(false);
+            setTestEmails("");
+        } catch (err: any) {
+            console.error("Test email failed", err);
+            alert(err.response?.data?.detail || "Failed to send test email.");
+        } finally {
+            setIsTestingEmail(false);
+        }
+    };
 
     useEffect(() => {
         const fetchProject = async () => {
@@ -313,8 +347,17 @@ export default function DispatchPage() {
                                 <div className="bg-[#f0f4fc] p-5 rounded-xl border border-indigo-100 text-left">
                                     <h4 className="text-sm font-bold text-slate-800 mb-1">Personalised Tags</h4>
                                     <p className="text-xs text-slate-500 mb-4">These tags can be used to dynamically add matching data to each outbound email.</p>
-                                    <div className="flex flex-wrap gap-6 text-sm">
-                                        <span className="flex items-center gap-2 text-slate-700"><span className="w-1.5 h-1.5 rounded-full bg-slate-800"></span> <code className="font-semibold bg-white px-1.5 py-0.5 rounded border border-slate-200 text-indigo-700">{"{name}"}</code> adds the Recipient Name</span>
+                                    <div className="flex flex-wrap gap-x-6 gap-y-3 text-sm">
+                                        {csvData.length > 0 && Object.keys(csvData[0]).map((key) => (
+                                            <span key={key} className="flex items-center gap-2 text-slate-700">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+                                                <code className="font-semibold bg-white px-1.5 py-0.5 rounded border border-slate-200 text-indigo-700">{"{"}{key}{"}"}</code>
+                                                <span className="text-[10px] text-slate-400 hidden sm:inline">from CSV</span>
+                                            </span>
+                                        ))}
+                                        {csvData.length === 0 && (
+                                            <span className="flex items-center gap-2 text-slate-700"><span className="w-1.5 h-1.5 rounded-full bg-slate-800"></span> <code className="font-semibold bg-white px-1.5 py-0.5 rounded border border-slate-200 text-indigo-700">{"{name}"}</code> adds the Recipient Name</span>
+                                        )}
                                         <span className="flex items-center gap-2 text-slate-700"><span className="w-1.5 h-1.5 rounded-full bg-slate-800"></span> <code className="font-semibold bg-white px-1.5 py-0.5 rounded border border-slate-200 text-indigo-700">{"{project_name}"}</code> adds the Initiative Name</span>
                                         <span className="flex items-center gap-2 text-slate-700"><span className="w-1.5 h-1.5 rounded-full bg-slate-800"></span> <code className="font-semibold bg-white px-1.5 py-0.5 rounded border border-slate-200 text-indigo-700">{"{credential_button}"}</code> embeds the Verification Link Button</span>
                                     </div>
@@ -654,13 +697,18 @@ export default function DispatchPage() {
                                 </button>
 
                                 <button
-                                    onClick={() => {
-                                        // handle send logic
-                                        setShowTestModal(false);
-                                    }}
-                                    className="px-6 py-2.5 rounded-lg font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md transition-colors text-sm"
+                                    disabled={isTestingEmail}
+                                    onClick={handleSendTestEmail}
+                                    className={`px-6 py-2.5 rounded-lg font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md transition-colors text-sm flex items-center gap-2 ${isTestingEmail ? 'opacity-70 cursor-wait' : ''}`}
                                 >
-                                    Send Email
+                                    {isTestingEmail ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Sending...
+                                        </>
+                                    ) : (
+                                        'Send Email'
+                                    )}
                                 </button>
 
                             </div>

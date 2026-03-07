@@ -11,6 +11,7 @@ interface EditorCanvasProps {
     templateUrl: string;
     projectId: number | null;
     initialMappingData?: any[] | null;
+    onSave?: (newId: number) => void;
 }
 
 interface Placeholder {
@@ -42,7 +43,7 @@ const CanvasImage = ({ ph }: { ph: Placeholder }) => {
     );
 };
 
-export default function EditorCanvas({ templateUrl, projectId, initialMappingData }: EditorCanvasProps) {
+export default function EditorCanvas({ templateUrl, projectId, initialMappingData, onSave }: EditorCanvasProps) {
     const navigate = useNavigate();
     const [image] = useImage(templateUrl);
     const [isSaving, setIsSaving] = useState(false);
@@ -706,26 +707,43 @@ export default function EditorCanvas({ templateUrl, projectId, initialMappingDat
                         </div>
 
                         <button
-                            disabled={isSaving || isSaved || !projectId}
+                            disabled={isSaving || isSaved}
                             onClick={async () => {
-                                if (!projectId) return;
-
                                 const newName = window.prompt("Enter a name to save this Certificate Project:", "My Certificate");
                                 if (newName === null) return; // Action cancelled
 
                                 setIsSaving(true);
                                 try {
                                     const token = localStorage.getItem("token") || "mock_token";
-                                    await axios.put(`${API_BASE_URL}/api/projects/${projectId}/mapping`, {
+                                    let currentId = projectId;
+
+                                    if (!currentId) {
+                                        // 1. Create the project first
+                                        const createRes = await axios.post(`${API_BASE_URL}/api/projects/`, {
+                                            name: newName,
+                                            template_url: templateUrl
+                                        }, {
+                                            headers: { Authorization: `Bearer ${token}` }
+                                        });
+                                        currentId = createRes.data.id;
+                                    }
+
+                                    // 2. Save the mapping data
+                                    await axios.put(`${API_BASE_URL}/api/projects/${currentId}/mapping`, {
                                         mapping_data: placeholders,
                                         name: newName
                                     }, {
                                         headers: { Authorization: `Bearer ${token}` }
                                     });
+
                                     setIsSaved(true);
+                                    if (!projectId && onSave && currentId) {
+                                        onSave(currentId);
+                                    }
                                     setTimeout(() => setIsSaved(false), 2000);
                                 } catch (error) {
                                     console.error("Failed to save layout configuration to DB:", error);
+                                    alert("Failed to save configuration. Please try again.");
                                 } finally {
                                     setIsSaving(false);
                                 }
@@ -734,9 +752,7 @@ export default function EditorCanvas({ templateUrl, projectId, initialMappingDat
                                 ? 'bg-indigo-400 text-white cursor-wait'
                                 : isSaved
                                     ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                                    : projectId
-                                        ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
-                                        : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                    : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
                                 }`}
                         >
                             {isSaving ? 'Saving...' : isSaved ? '✓ Saved!' : 'Save Configuration'}
@@ -1045,7 +1061,18 @@ export default function EditorCanvas({ templateUrl, projectId, initialMappingDat
                                                     value={selectedPh?.fill || '#1e293b'}
                                                     onChange={(e) => updateSelectedPlaceholder({ fill: e.target.value })}
                                                 />
-                                                <span className="text-xs text-slate-600 font-mono uppercase">{selectedPh?.fill || '#1e293b'}</span>
+                                                <input
+                                                    type="text"
+                                                    className="w-20 px-2 py-1 bg-slate-50 border border-slate-200 rounded text-[10px] font-mono uppercase text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                                    value={selectedPh?.fill || '#1e293b'}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        if (/^#[0-9A-F]{0,6}$/i.test(val)) {
+                                                            updateSelectedPlaceholder({ fill: val });
+                                                        }
+                                                    }}
+                                                    placeholder="#HEX"
+                                                />
                                             </div>
                                         </div>
                                     </div>
