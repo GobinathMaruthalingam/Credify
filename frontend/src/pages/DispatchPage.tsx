@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '../lib/api';
-import { Loader2, CheckCircle2, XCircle, Send, UploadCloud, FileSpreadsheet, Edit3, ArrowLeft } from 'lucide-react';
+import {
+    Loader2, CheckCircle2,
+    XCircle, Send, UploadCloud, FileSpreadsheet, Edit3, ArrowLeft, Plus, Trash2
+} from 'lucide-react';
 import Papa from 'papaparse';
 import ReactQuill, { Quill } from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
@@ -98,7 +101,7 @@ export default function DispatchPage() {
     const [editorMode, setEditorMode] = useState<'lexical' | 'html'>('lexical');
     const [previewHtml, setPreviewHtml] = useState(false);
     const [showTestModal, setShowTestModal] = useState(false);
-    const [testEmails, setTestEmails] = useState("");
+    const [testEmails, setTestEmails] = useState<string[]>([""]); // Array for multi-recipient support
     const [isTestingEmail, setIsTestingEmail] = useState(false);
 
     // Dispatching State
@@ -112,19 +115,17 @@ export default function DispatchPage() {
     });
 
     const handleSendTestEmail = async () => {
-        if (!testEmails.trim()) return alert("Please enter at least one email.");
-
-        const emailList = testEmails.split(',').map(e => e.trim()).filter(e => e !== "");
-        if (emailList.length > 5) return alert("Maximum 5 test emails allowed.");
+        const validEmails = testEmails.map(e => e.trim()).filter(e => e !== "");
+        if (validEmails.length === 0) return alert("Please enter at least one email.");
+        if (validEmails.length > 5) return alert("Maximum 5 test emails allowed.");
 
         setIsTestingEmail(true);
         try {
             const token = localStorage.getItem("token") || "mock_token";
-            // Use the first row of CSV as sample data if available
             const sampleData = csvData.length > 0 ? csvData[0] : {};
 
             await axios.post(`${API_BASE_URL}/api/projects/${projectId}/test-email`, {
-                emails: emailList,
+                emails: validEmails,
                 subject: emailSubject,
                 body: emailBody,
                 sample_data: sampleData
@@ -134,13 +135,33 @@ export default function DispatchPage() {
 
             alert("Test email(s) sent successfully!");
             setShowTestModal(false);
-            setTestEmails("");
+            setTestEmails([""]); // Reset to initial state
         } catch (err: any) {
             console.error("Test email failed", err);
             alert(err.response?.data?.detail || "Failed to send test email.");
         } finally {
             setIsTestingEmail(false);
         }
+    };
+
+    const addTestEmailField = () => {
+        if (testEmails.length < 5) {
+            setTestEmails([...testEmails, ""]);
+        }
+    };
+
+    const removeTestEmailField = (index: number) => {
+        if (testEmails.length > 1) {
+            const newEmails = [...testEmails];
+            newEmails.splice(index, 1);
+            setTestEmails(newEmails);
+        }
+    };
+
+    const updateTestEmailField = (index: number, value: string) => {
+        const newEmails = [...testEmails];
+        newEmails[index] = value;
+        setTestEmails(newEmails);
     };
 
     useEffect(() => {
@@ -153,7 +174,9 @@ export default function DispatchPage() {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 const proj = res.data.find((p: any) => p.id === projectId);
-                if (proj) setProjectName(proj.name || "Untitled Credential");
+                if (proj) {
+                    setProjectName(proj.name || "Untitled Credential");
+                }
             } catch (err) {
                 console.error(err);
             }
@@ -675,18 +698,39 @@ export default function DispatchPage() {
                                     <XCircle className="w-6 h-6" />
                                 </button>
                             </div>
-                            <div className="p-6 bg-white shrink-0">
-                                <label className="block text-sm font-bold text-slate-700 mb-2">Email</label>
-                                <input
-                                    type="text"
-                                    placeholder="Enter Email here..."
-                                    value={testEmails}
-                                    onChange={e => setTestEmails(e.target.value.substring(0, 256))}
-                                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:border-[#3b5998] focus:ring-1 focus:ring-[#3b5998] text-sm text-slate-800 placeholder:text-slate-400"
-                                />
-                                <div className="text-right text-xs text-slate-400 mt-2 font-medium">
-                                    {testEmails.length}/256
-                                </div>
+                            <div className="p-6 bg-white space-y-4 max-h-[400px] overflow-y-auto">
+                                {testEmails.map((email, index) => (
+                                    <div key={index} className="space-y-1">
+                                        <div className="flex items-center justify-between">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Recipient {index + 1}</label>
+                                            {testEmails.length > 1 && (
+                                                <button
+                                                    onClick={() => removeTestEmailField(index)}
+                                                    className="text-slate-400 hover:text-red-500 transition-colors p-1"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            )}
+                                        </div>
+                                        <input
+                                            type="email"
+                                            placeholder="e.g. name@company.com"
+                                            value={email}
+                                            onChange={e => updateTestEmailField(index, e.target.value)}
+                                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50/50 text-sm text-slate-800 transition-all"
+                                        />
+                                    </div>
+                                ))}
+
+                                {testEmails.length < 5 && (
+                                    <button
+                                        onClick={addTestEmailField}
+                                        className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 font-bold text-sm hover:border-indigo-200 hover:text-indigo-500 hover:bg-indigo-50/30 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Plus size={16} />
+                                        Add Recipient
+                                    </button>
+                                )}
                             </div>
                             <div className="px-6 py-5 flex items-center justify-end gap-3 bg-white border-t border-slate-100">
                                 <button

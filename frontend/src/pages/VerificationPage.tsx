@@ -4,6 +4,7 @@ import axios from 'axios';
 import { BadgeCheck, XCircle, Loader2, Calendar, User, FileImage, ShieldCheck } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { API_BASE_URL } from '../lib/api';
+import { jsPDF } from 'jspdf';
 
 interface Certificate {
     id: string;
@@ -13,6 +14,9 @@ interface Certificate {
     image_url: string | null;
     issued_at: string;
     is_revoked: boolean;
+    project?: {
+        name: string;
+    };
 }
 
 export default function VerificationPage() {
@@ -20,6 +24,7 @@ export default function VerificationPage() {
     const [cert, setCert] = useState<Certificate | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isDownloading, setIsDownloading] = useState(false);
 
     useEffect(() => {
         const fetchCertificate = async () => {
@@ -34,6 +39,34 @@ export default function VerificationPage() {
         };
         fetchCertificate();
     }, [id]);
+
+    const handleDownloadPDF = async () => {
+        if (!cert?.image_url) return;
+        setIsDownloading(true);
+        try {
+            const response = await fetch(cert.image_url);
+            const blob = await response.blob();
+            const imgData = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(blob);
+            });
+
+            const pdf = new jsPDF({
+                orientation: 'landscape',
+                unit: 'px',
+                format: [800, 600]
+            });
+
+            pdf.addImage(imgData, 'PNG', 0, 0, 800, 600);
+            pdf.save(`${cert.recipient_name.replace(/\s+/g, '_')}_Certificate.pdf`);
+        } catch (err) {
+            console.error("PDF Download failed:", err);
+            alert("Failed to generate PDF. Please try again.");
+        } finally {
+            setIsDownloading(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -127,11 +160,28 @@ export default function VerificationPage() {
                         {/* Image Preview Area */}
                         <div className="p-10 lg:p-12 flex flex-col justify-center items-center bg-white min-h-[400px]">
                             {cert.image_url ? (
-                                <img
-                                    src={cert.image_url}
-                                    alt="Certificate"
-                                    className="w-full h-auto rounded-xl shadow-lg border border-slate-200 object-contain"
-                                />
+                                <div className="w-full space-y-6">
+                                    <img
+                                        src={cert.image_url}
+                                        alt="Certificate"
+                                        className="w-full h-auto rounded-xl shadow-lg border border-slate-200 object-contain"
+                                    />
+                                    <div className="flex justify-center pb-4">
+                                        <button
+                                            onClick={handleDownloadPDF}
+                                            disabled={isDownloading}
+                                            className="group relative flex items-center justify-center gap-3 px-12 py-4 bg-white hover:bg-slate-50 text-indigo-600 font-black rounded-2xl transition-all border-2 border-indigo-100 hover:border-indigo-600 shadow-xl shadow-indigo-100/20 overflow-hidden min-w-[280px]"
+                                        >
+                                            <div className="absolute inset-0 bg-gradient-to-r from-indigo-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            {isDownloading ? (
+                                                <Loader2 className="w-5 h-5 animate-spin relative z-10" />
+                                            ) : (
+                                                <FileImage className="w-5 h-5 relative z-10 group-hover:scale-110 transition-transform" />
+                                            )}
+                                            <span className="relative z-10">Download as PDF</span>
+                                        </button>
+                                    </div>
+                                </div>
                             ) : (
                                 <div className="text-center space-y-4">
                                     <FileImage className="w-20 h-20 text-slate-200 mx-auto" />
@@ -145,7 +195,7 @@ export default function VerificationPage() {
 
                 <div className="text-center pt-8">
                     <p className="text-slate-400 text-sm font-medium flex items-center justify-center gap-1.5">
-                        Secured by <Logo className="h-8 w-auto text-slate-800" />
+                        Secured by <Logo className="h-10 w-auto text-slate-800" />
                     </p>
                 </div>
             </div>

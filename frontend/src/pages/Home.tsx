@@ -10,7 +10,7 @@ export default function Home() {
             <nav className="fixed top-0 w-full z-50 bg-[#0B0F19]/80 backdrop-blur-md border-b border-white/10 transition-all duration-300">
                 <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
                     <div className="flex items-center">
-                        <Logo className="h-8 w-auto text-white" />
+                        <Logo className="h-10 w-auto text-white" />
                     </div>
                     <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-400">
                         <a href="#features" className="hover:text-white transition-colors">Features</a>
@@ -157,7 +157,7 @@ export default function Home() {
 
             {/* Footer */}
             <footer className="border-t border-white/10 bg-[#0B0F19] py-12 px-6 text-center">
-                <Logo className="h-6 w-auto text-white mb-6 mx-auto opacity-80" />
+                <Logo className="h-10 w-auto text-white mb-6 mx-auto opacity-80" />
                 <p className="text-slate-500 text-sm">© {new Date().getFullYear()} Credify Inc. All rights reserved.</p>
             </footer>
         </div>

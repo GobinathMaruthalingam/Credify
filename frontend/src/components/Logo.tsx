@@ -6,11 +6,18 @@ interface LogoProps extends React.SVGProps<SVGSVGElement> {
 
 export function Logo({ className = "h-8 w-auto", ...props }: LogoProps) {
     return (
-        <img
-            src="https://rrjogdkgrszahxgucbfn.supabase.co/storage/v1/object/public/credify-assets/brand/official-logo.png"
-            alt="Credify Logo"
-            className={className}
-            {...(props as any)}
-        />
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 40" className={className} {...props}>
+            <text
+                x="0"
+                y="30"
+                fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+                fontSize="28"
+                fontWeight="900"
+                fill="currentColor"
+                letterSpacing="-1"
+            >
+                Credify<tspan fill="#4f46e5">.</tspan>
+            </text>
+        </svg>
     );
 }

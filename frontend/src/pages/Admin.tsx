@@ -25,7 +25,7 @@ export default function Admin() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between h-16">
                         <div className="flex items-center gap-2">
-                            <Logo className="h-6 w-auto text-slate-800" />
+                            <Logo className="h-10 w-auto text-slate-800" />
                             <span className="text-[10px] font-black tracking-widest bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full ml-1">
                                 ADMIN
                             </span>

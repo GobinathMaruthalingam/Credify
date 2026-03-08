@@ -202,10 +202,20 @@ async def process_dispatch_job(job_id: int, project_id: int, csv_data: list[dict
                 # Inject the credential button
                 final_html = final_html.replace("{credential_button}", button_html)
 
-                # Inject Tracking Logo at the very bottom
+                # Inject "Powered by Credify" footer with tracking
                 backend_base_url = os.getenv("BACKEND_URL", "http://localhost:8000").rstrip('/')
-                tracking_img = f'<br/><div style="text-align:center; margin-top: 20px;"><img src="{backend_base_url}/api/projects/track/{cert.id}.png" alt="Credify" style="height:32px; width:auto; border:0;"></div>'
-                final_html += tracking_img
+                logo_url = f"{backend_base_url}/api/projects/track/{cert.id}.png"
+                footer_html = f'''
+                <br/>
+                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 40px 0 20px;">
+                <div style="text-align:center; color: #64748b; font-family: sans-serif; font-size: 12px; margin-bottom: 20px;">
+                    <p style="margin: 0; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Powered by</p>
+                    <a href="https://credify.gnmlabs.com" style="text-decoration: none; display: inline-block; margin-top: 10px;">
+                        <img src="{logo_url}" alt="Credify" style="height:28px; width:auto; border:0;">
+                    </a>
+                </div>
+                '''
+                final_html += footer_html
 
                 await asyncio.to_thread(send_smtp_email_sync, recipient_email, final_subject, final_html)
                 
@@ -259,6 +269,20 @@ async def send_test_email(emails: list[str], subject: str, body: str, project_na
         final_subject = final_subject.replace(f"{{{tag}}}", str(val))
         
     final_body = final_body.replace("{credential_button}", button_html)
+
+    # Inject "Powered by Credify" footer for Branding Visibility
+    logo_url = "https://rrjogdkgrszahxgucbfn.supabase.co/storage/v1/object/public/credify-assets/brand/official-logo.png"
+    footer_html = f'''
+    <br/>
+    <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 40px 0 20px;">
+    <div style="text-align:center; color: #64748b; font-family: sans-serif; font-size: 12px; margin-bottom: 20px;">
+        <p style="margin: 0; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Powered by</p>
+        <a href="https://credify.gnmlabs.com" style="text-decoration: none; display: inline-block; margin-top: 10px;">
+            <img src="{logo_url}" alt="Credify" style="height:28px; width:auto; border:0;">
+        </a>
+    </div>
+    '''
+    final_body += footer_html
     
     for email in emails:
         await asyncio.to_thread(send_smtp_email_sync, email, final_subject, final_body)

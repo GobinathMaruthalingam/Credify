@@ -47,8 +47,8 @@ export default function Dashboard() {
         <div className="flex h-screen bg-slate-50">
             {/* Sidebar */}
             <aside className="w-64 bg-white border-r border-slate-200 flex flex-col z-20 shadow-sm relative">
-                <div className="p-6 border-b border-slate-100 pb-5">
-                    <Logo className="h-7 w-auto text-slate-800" />
+                <div className="pt-6 pb-5 pl-[28px] border-b border-slate-100">
+                    <Logo className="h-10 w-auto text-slate-800" />
                 </div>
                 <nav className="flex-1 p-4 space-y-1">
                     <a href="#" className="flex items-center gap-3 px-3 py-2.5 bg-indigo-50 text-indigo-700 rounded-lg font-medium">
