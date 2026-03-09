@@ -32,6 +32,7 @@ class PreviewRequest(BaseModel):
     font_size: int = 120
     is_qrcode: bool = False
     qr_url: Optional[str] = None
+    qr_bg: str = "transparent"
 
 class TestEmailRequest(BaseModel):
     emails: List[str]

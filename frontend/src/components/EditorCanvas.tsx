@@ -31,6 +31,7 @@ interface Placeholder {
     isItalic: boolean;
     type?: 'text' | 'qrcode' | 'image';
     imageUrl?: string;
+    qrBg?: string; // Background for QR codes: 'transparent' or hex color
 }
 
 const CanvasImage = ({ ph }: { ph: Placeholder }) => {
@@ -652,7 +653,8 @@ export default function EditorCanvas({ templateUrl, projectId, initialMappingDat
                                         h: 150,
                                         rotation: 0,
                                         align: 'center',
-                                        fontSize: 40, fontFamily: 'Arial', fill: '#000', isBold: false, isItalic: false
+                                        fontSize: 40, fontFamily: 'Arial', fill: '#000', isBold: false, isItalic: false,
+                                        qrBg: '#ffffff'
                                     }]);
                                     setSelectedId(newId);
                                     setMode('select');
@@ -866,7 +868,7 @@ export default function EditorCanvas({ templateUrl, projectId, initialMappingDat
                                     <CanvasImage ph={ph} />
                                 ) : ph.type === 'qrcode' ? (
                                     <Group>
-                                        <Rect width={ph.w} height={ph.h} fill="#ffffff" />
+                                        <Rect width={ph.w} height={ph.h} fill={ph.qrBg || '#ffffff'} />
                                         <Rect width={ph.w} height={ph.h} stroke="#000" strokeWidth={4} />
                                         <Rect x={ph.w * 0.1} y={ph.h * 0.1} width={ph.w * 0.2} height={ph.h * 0.2} fill="#000" />
                                         <Rect x={ph.w * 0.7} y={ph.h * 0.1} width={ph.w * 0.2} height={ph.h * 0.2} fill="#000" />
@@ -963,6 +965,40 @@ export default function EditorCanvas({ templateUrl, projectId, initialMappingDat
                                     : `This becomes {{${selectedPh?.name || ''}}} in your dataset.`}
                             </p>
                         </div>
+
+                        {selectedPh?.type === 'qrcode' && (
+                            <div className="pb-4 border-b border-slate-100">
+                                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">QR Background</label>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => updateSelectedPlaceholder({ qrBg: 'transparent' })}
+                                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all ${selectedPh.qrBg === 'transparent' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
+                                    >
+                                        Transparent
+                                    </button>
+                                    <button
+                                        onClick={() => updateSelectedPlaceholder({ qrBg: '#ffffff' })}
+                                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all ${selectedPh.qrBg !== 'transparent' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
+                                    >
+                                        Solid Fill
+                                    </button>
+                                </div>
+                                {selectedPh.qrBg !== 'transparent' && (
+                                    <div className="mt-3 flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 rounded-lg group">
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="color"
+                                                className="w-7 h-7 rounded-md cursor-pointer border-0 p-0 overflow-hidden shadow-sm"
+                                                value={selectedPh.qrBg || '#ffffff'}
+                                                onChange={(e) => updateSelectedPlaceholder({ qrBg: e.target.value })}
+                                            />
+                                            <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-tight">{selectedPh.qrBg}</span>
+                                        </div>
+                                        <span className="text-[9px] font-bold text-slate-300 group-hover:text-indigo-400 transition-colors uppercase tracking-widest">BG Color</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {selectedPh?.type !== 'qrcode' && selectedPh?.type !== 'image' && (
                             <>

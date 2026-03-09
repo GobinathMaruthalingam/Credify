@@ -47,7 +47,7 @@ def get_font(font_bytes: bytes, text: str, max_width: int, max_height: int, init
 def generate_preview(template_bytes: bytes, font_bytes: bytes, text: str, 
                      bbox_x: int, bbox_y: int, bbox_width: int, bbox_height: int,
                      text_color: str, initial_font_size: int = 120, format: str = "PNG",
-                     is_qrcode: bool = False, qr_url: str = None) -> bytes:
+                     is_qrcode: bool = False, qr_url: str = None, qr_bg: str = "transparent") -> bytes:
     """
     Generates a single certificate in memory and returns its bytes.
     Useful for live /preview endpoint. Handles dynamic fonts and QR Code matrices.
@@ -59,7 +59,7 @@ def generate_preview(template_bytes: bytes, font_bytes: bytes, text: str,
         qr.add_data(qr_url)
         qr.make(fit=True)
         # We must support alpha channel so we render onto the template cleanly
-        qr_img = qr.make_image(fill_color=text_color, back_color="transparent").convert("RGBA")
+        qr_img = qr.make_image(fill_color=text_color, back_color=qr_bg).convert("RGBA")
         qr_img = qr_img.resize((bbox_width, bbox_height), Image.Resampling.LANCZOS)
         
         # QR Codes: bbox_x and bbox_y represent the CENTER of the bounding box.

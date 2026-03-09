@@ -162,7 +162,8 @@ async def process_dispatch_job(job_id: int, project_id: int, csv_data: list[dict
                         initial_font_size=int(ph.get("fontSize", 120)),
                         format="PNG",
                         is_qrcode=is_qr,
-                        qr_url=qr_url
+                        qr_url=qr_url,
+                        qr_bg=ph.get("qrBg", "transparent")
                     )
 
                 # 3. Upload composited bytes to S3
@@ -179,7 +180,7 @@ async def process_dispatch_job(job_id: int, project_id: int, csv_data: list[dict
                 <div style="margin: 30px 0;">
                     <a href="{frontend_bg_url}/verify/{cert.id}" 
                        style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
-                       View Verified Credential
+                       View Credential
                     </a>
                 </div>
                 '''
