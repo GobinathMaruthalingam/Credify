@@ -33,6 +33,7 @@ class PreviewRequest(BaseModel):
     is_qrcode: bool = False
     qr_url: Optional[str] = None
     qr_bg: str = "transparent"
+    align: str = "center"
 
 class TestEmailRequest(BaseModel):
     emails: List[str]

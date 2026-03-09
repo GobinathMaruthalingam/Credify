@@ -163,7 +163,8 @@ async def process_dispatch_job(job_id: int, project_id: int, csv_data: list[dict
                         format="PNG",
                         is_qrcode=is_qr,
                         qr_url=qr_url,
-                        qr_bg=ph.get("qrBg", "transparent")
+                        qr_bg=ph.get("qrBg", "transparent"),
+                        align=ph.get("align", "center")
                     )
 
                 # 3. Upload composited bytes to S3

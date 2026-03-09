@@ -47,7 +47,9 @@ def get_font(font_bytes: bytes, text: str, max_width: int, max_height: int, init
 def generate_preview(template_bytes: bytes, font_bytes: bytes, text: str, 
                      bbox_x: int, bbox_y: int, bbox_width: int, bbox_height: int,
                      text_color: str, initial_font_size: int = 120, format: str = "PNG",
-                     is_qrcode: bool = False, qr_url: str = None, qr_bg: str = "transparent") -> bytes:
+                     is_qrcode: bool = False, qr_url: Optional[str] = None,
+                     qr_bg: str = "transparent",
+                     align: str = "center") -> bytes:
     """
     Generates a single certificate in memory and returns its bytes.
     Useful for live /preview endpoint. Handles dynamic fonts and QR Code matrices.
@@ -77,8 +79,19 @@ def generate_preview(template_bytes: bytes, font_bytes: bytes, text: str,
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
         
-        # Determine top-left coordinate based on frontend's center origin
-        adjusted_x = bbox_x - (text_width / 2)
+        # Determine top-left coordinate based on frontend's center origin and alignment
+        if align == "left":
+            # bbox_x is the center of the total box, so we subtract half the box width to get start
+            # then add/subtract as needed. Actually, bbox_x/y is the geometric center of the draggable field.
+            # To align left, start at (center_x - box_width/2)
+            adjusted_x = bbox_x - (bbox_width / 2)
+        elif align == "right":
+            # To align right, end at (center_x + box_width/2)
+            adjusted_x = (bbox_x + (bbox_width / 2)) - text_width
+        else: # center
+            adjusted_x = bbox_x - (text_width / 2)
+
+        # Standard vertical centering
         adjusted_y = bbox_y - (text_height / 2)
         
         draw.text((adjusted_x, adjusted_y), text, fill=text_color, font=font)

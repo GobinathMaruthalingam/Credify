@@ -77,7 +77,8 @@ async def preview_certificate(req: PreviewRequest, current_user: User = Depends(
             initial_font_size=req.font_size,
             is_qrcode=req.is_qrcode,
             qr_url=req.qr_url,
-            qr_bg=req.qr_bg
+            qr_bg=req.qr_bg,
+            align=req.align
         )
         
         return StreamingResponse(io.BytesIO(result_bytes), media_type="image/png")
